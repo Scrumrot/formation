@@ -1,0 +1,7 @@
+packages:
+  - "packages/*"
+  - "examples/*"
+# esbuild ships prebuilt binaries and needs its install script to pick the right
+# one; it arrives via vitest, not as a direct dependency.
+allowBuilds:
+  esbuild: true

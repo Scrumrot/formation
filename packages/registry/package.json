@@ -1,0 +1,26 @@
+{
+  "name": "@formation/registry",
+  "version": "0.0.0",
+  "description": "Which stacks exist, and which combinations of them are legal.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean"
+  },
+  "dependencies": {
+    "@formation/core": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

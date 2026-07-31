@@ -1,0 +1,4 @@
+# The generator's snapshot and golden-project tests compare emitted source text.
+# Without this, a Windows checkout normalizes to CRLF and every snapshot fails
+# on one platform or the other.
+* text=auto eol=lf

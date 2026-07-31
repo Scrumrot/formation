@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Scratch output from running the generator against fixtures locally.
+.formation/
+/tmp/

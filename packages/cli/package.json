@@ -1,0 +1,34 @@
+{
+  "name": "@formation/cli",
+  "version": "0.0.0",
+  "description": "Generate form components for your stack from a schema.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "formation": "./dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean",
+    "dev": "node --experimental-strip-types ./src/bin.ts"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.11.0",
+    "@formation/core": "workspace:*",
+    "@formation/registry": "workspace:*",
+    "commander": "^14.0.0",
+    "picocolors": "^1.1.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
