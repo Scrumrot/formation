@@ -37,6 +37,8 @@ export type HookRef = Readonly<{
 }>;
 
 export type StateBinding = Readonly<{
+  /** The state module, relative to the form folder, without extension. */
+  module: string;
   hooks: Readonly<Record<ControlKind, HookRef>>;
   list: HookRef;
   /** The hook that selects a discriminated union's branch. */

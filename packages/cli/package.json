@@ -29,6 +29,7 @@
     "@formation/ingest-zod": "workspace:*",
     "@formation/registry": "workspace:*",
     "@formation/schema-zod": "workspace:*",
+    "@formation/state-formstand": "workspace:*",
     "@formation/state-zustand": "workspace:*",
     "@formation/ui-mui": "workspace:*",
     "commander": "^14.0.0",

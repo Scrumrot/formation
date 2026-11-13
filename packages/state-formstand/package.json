@@ -1,0 +1,27 @@
+{
+  "name": "@formation/state-formstand",
+  "version": "0.0.0",
+  "description": "State adapter: a formstand form, and hooks over it.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean"
+  },
+  "dependencies": {
+    "@formation/core": "workspace:*",
+    "@formation/state-kit": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

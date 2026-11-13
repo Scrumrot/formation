@@ -1,9 +1,0 @@
-{
-  "extends": "./tsconfig.base.json",
-  "compilerOptions": {
-    "paths": {
-      "@generated/*": ["./src/generated/mui9/*"]
-    }
-  },
-  "include": ["schemas", "src/generated/mui9", "src/*.ts", "src/*.tsx"]
-}

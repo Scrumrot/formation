@@ -5,3 +5,8 @@ packages:
 # one; it arrives via vitest, not as a direct dependency.
 allowBuilds:
   esbuild: true
+# formstand is this project's sibling library, and the golden project runs the
+# generated formstand forms against its current release — which is usually
+# younger than the minimum release age the rest of the tree is held to.
+minimumReleaseAgeExclude:
+  - formstand@0.26.1

@@ -43,7 +43,7 @@ import {
  */
 
 /**
- * The majors this adapter is verified against (examples/zustand-mui typechecks
+ * The majors this adapter is verified against (examples/golden typechecks
  * generated output against each one's real declarations). MUI published no
  * major 8 — 7.x is followed directly by 9.
  */

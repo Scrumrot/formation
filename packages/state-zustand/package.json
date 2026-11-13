@@ -18,7 +18,8 @@
     "clean": "tsc --build --clean"
   },
   "dependencies": {
-    "@formation/core": "workspace:*"
+    "@formation/core": "workspace:*",
+    "@formation/state-kit": "workspace:*"
   },
   "publishConfig": {
     "access": "public"

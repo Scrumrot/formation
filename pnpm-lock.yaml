@@ -24,7 +24,7 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@22.20.1)(jiti@2.7.0)(jsdom@26.1.0)(yaml@2.9.1)
 
-  examples/zustand-mui:
+  examples/golden:
     dependencies:
       '@emotion/react':
         specifier: ^11.14.0
@@ -35,6 +35,9 @@ importers:
       '@mui/material':
         specifier: ^9.5.0
         version: 9.5.0(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1))(@types/react@19.3.0)(react@19.3.1))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      formstand:
+        specifier: ^0.26.1
+        version: 0.26.1(react@19.3.1)(zod@4.6.7)(zustand@5.1.0(@types/react@19.3.0)(react@19.3.1))
       mui7:
         specifier: npm:@mui/material@^7.3.11
         version: '@mui/material@7.3.11(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1))(@types/react@19.3.0)(react@19.3.1))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)'
@@ -102,6 +105,9 @@ importers:
       '@formation/schema-zod':
         specifier: workspace:*
         version: link:../schema-zod
+      '@formation/state-formstand':
+        specifier: workspace:*
+        version: link:../state-formstand
       '@formation/state-zustand':
         specifier: workspace:*
         version: link:../state-zustand
@@ -159,11 +165,29 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/state-formstand:
+    dependencies:
+      '@formation/core':
+        specifier: workspace:*
+        version: link:../core
+      '@formation/state-kit':
+        specifier: workspace:*
+        version: link:../state-kit
+
+  packages/state-kit:
+    dependencies:
+      '@formation/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/state-zustand:
     dependencies:
       '@formation/core':
         specifier: workspace:*
         version: link:../core
+      '@formation/state-kit':
+        specifier: workspace:*
+        version: link:../state-kit
 
   packages/ui-mui:
     dependencies:
@@ -1148,6 +1172,14 @@ packages:
   find-up@4.1.0:
     resolution: {integrity: sha512-PpOwAdQ/YlXQ2vj8a3h8IipDuYRi3wceVQQGYWxNINccq40Anw7BlsEXCMbt1Zt+OLA6Fq9suIpIWD0OsnISlw==}
     engines: {node: '>=8'}
+
+  formstand@0.26.1:
+    resolution: {integrity: sha512-+AIK0R72diFpmCMDbesbR5iirli18xRiQDx8+SR1z5WG9uvdBJILsC8rSE45ldSujwIflEFXqTO9QSqQPEvUuQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      react: ^19.0.0
+      zod: ^4.2.0
+      zustand: ^5.0.0
 
   fs-extra@7.0.1:
     resolution: {integrity: sha512-YJDaCJZEnBmcbw13fvdAM9AwNOJwOzrE4pqMqBq5nFiEqXUqHwlK4B+3pUw6JNvfSPtX05xFHtYy/1ni01eGCw==}
@@ -2763,6 +2795,12 @@ snapshots:
     dependencies:
       locate-path: 5.0.0
       path-exists: 4.0.0
+
+  formstand@0.26.1(react@19.3.1)(zod@4.6.7)(zustand@5.1.0(@types/react@19.3.0)(react@19.3.1)):
+    dependencies:
+      react: 19.3.1
+      zod: 4.6.7
+      zustand: 5.1.0(@types/react@19.3.0)(react@19.3.1)
 
   fs-extra@7.0.1:
     dependencies:

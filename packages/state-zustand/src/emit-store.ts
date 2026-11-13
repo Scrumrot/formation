@@ -1,22 +1,25 @@
-import type {
-  ControlKind,
-  FieldNode,
-  FormBindings,
-  FormIR,
-  StateAdapterInput,
-} from "@formation/core";
-import { collectBindings, isIdentifier, pathPattern, pathTypeText } from "@formation/core";
-
-import { defaultBlank, effectiveBlank } from "./conflicts.js";
-import type { StoreNames } from "./names.js";
+import type { FormBindings, StateAdapterInput } from "@formation/core";
+import { collectBindings } from "@formation/core";
+import type { Usage } from "@formation/state-kit";
 import {
-  blankOf,
-  blankRowOf,
-  blankVariantOf,
-  initialValuesOf,
-  objectType,
-  printValue,
-} from "./values.js";
+  DATE_HELPERS,
+  DICT_TYPE,
+  EMPTY_OF,
+  PATTERN_OF,
+  blankRowsTable,
+  dateEncodingsTable,
+  emptyValuesTable,
+  handlesSection,
+  pathsSection,
+  section,
+  unionsTable,
+  usageOf,
+  valuesSection,
+  when,
+} from "@formation/state-kit";
+
+import type { StoreNames } from "./names.js";
+import { BLANKS } from "./names.js";
 
 /**
  * Emits the form's state module: one self-contained zustand store plus the
@@ -28,203 +31,21 @@ import {
  * file is yours" (docs/plan.md §1) and a hidden runtime would take that back.
  * The price is that each form carries its own copy of ~150 lines of plumbing.
  *
+ * The values, paths and handle types come from state-kit, which every state
+ * adapter shares; what is written here is the part only a hand-rolled store
+ * needs — the store itself, and hooks that read and write it.
+ *
  * Everything below is conditional on what the form uses. That is not tidiness:
  * a user project with `noUnusedLocals` rejects a helper the form never calls,
  * so "emit the whole runtime every time" would generate code that fails to
  * compile for a form with, say, no lists.
  */
 
-type Usage = Readonly<
-  Record<ControlKind, boolean> & {
-    list: boolean;
-    variant: boolean;
-    /** Any field control at all. */
-    control: boolean;
-    /** Something can be cleared, so `emptyOf` is needed. */
-    empties: boolean;
-    /** Something looks a path up in a table, so `patternOf` is needed. */
-    patterns: boolean;
-    /** Something reads a value by path, so `getAt` and `useError` are needed. */
-    reads: boolean;
-  }
->;
-
-const usageOf = (bindings: FormBindings): Usage => {
-  const has = (kind: ControlKind): boolean =>
-    bindings.controls.some((control) => control.kind === kind);
-
-  const list = bindings.lists.length > 0;
-  const variant = bindings.variants.length > 0;
-  const empties = has("text") || has("number") || has("choice") || has("date") || variant;
-
-  return {
-    text: has("text"),
-    number: has("number"),
-    boolean: has("boolean"),
-    choice: has("choice"),
-    date: has("date"),
-    list,
-    variant,
-    control: bindings.controls.length > 0,
-    empties,
-    patterns: empties || list,
-    reads: bindings.controls.length > 0 || list || variant,
-  };
-};
-
-const tableKey = (path: readonly string[]): string => {
-  const pattern = pathPattern(path);
-
-  return isIdentifier(pattern) ? pattern : JSON.stringify(pattern);
-};
-
-// Two branches of a union may declare a field of the same name, which puts
-// the same path in a table twice. A repeated key is a compile error in an
-// object literal, so only the first entry is kept.
-const table = (entries: readonly (readonly [string, string])[]): string => {
-  const unique = entries.filter(
-    ([name], index) => entries.findIndex(([other]) => other === name) === index,
-  );
-
-  return unique.length === 0
-    ? "{}"
-    : `{\n${unique.map(([name, value]) => `${name}: ${value},`).join("\n")}\n}`;
-};
-
-const union = (types: readonly string[]): string =>
-  types.length === 0 ? "never" : [...new Set(types)].map((type) => `| ${type}`).join("\n");
-
-/** Text kinds blank to `""` and the rest to `undefined`; only exceptions are tabled. */
-const emptyEntries = (bindings: FormBindings): readonly (readonly [string, string])[] => [
-  ...bindings.controls
-    .filter((control) => control.kind !== "boolean")
-    .filter((control) => blankOf(control.field) !== defaultBlank(control))
-    .map((control) => {
-      // Branches of a union can share this path; they get one entry between
-      // them (see ./conflicts), and `table` drops the repeats.
-      const sharing = bindings.controls.filter(
-        (other) => pathPattern(other.field.path) === pathPattern(control.field.path),
-      );
-
-      return [tableKey(control.field.path), printValue(effectiveBlank(sharing))] as const;
-    }),
-  // A union clears like a choice does: to undefined unless the schema allows null.
-  ...bindings.variants
-    .filter((entry) => blankOf(entry.field) !== undefined)
-    .map((entry) => [tableKey(entry.field.path), printValue(blankOf(entry.field))] as const),
-];
-
-const encodingOf = (field: FieldNode): string =>
-  field.shape.kind !== "date"
-    ? "iso-date"
-    : field.shape.encoding === "date-object"
-      ? field.shape.time
-        ? "datetime"
-        : "date"
-      : field.shape.time
-        ? "iso-datetime"
-        : "iso-date";
-
-const encodingEntries = (bindings: FormBindings): readonly (readonly [string, string])[] =>
-  bindings.controls
-    .filter((control) => control.kind === "date" && encodingOf(control.field) !== "iso-date")
-    .map((control) => [tableKey(control.field.path), JSON.stringify(encodingOf(control.field))]);
-
-const section = (title: string): string =>
-  `\n// ---- ${title} ${"-".repeat(Math.max(4, 72 - title.length))}\n`;
-
-const when = (condition: boolean, source: string): string => (condition ? source : "");
-
-const pathsSection = (bindings: FormBindings, names: StoreNames, usage: Usage): string => {
-  const kinds: readonly ControlKind[] = ["text", "number", "boolean", "choice", "date"];
-  const perKind = kinds
-    .filter((kind) => usage[kind])
-    .map(
-      (kind) =>
-        `export type ${names.hooks[kind].pathType} =\n${union(
-          bindings.controls
-            .filter((control) => control.kind === kind)
-            .map((control) => pathTypeText(control.field.path)),
-        )};`,
-    );
-  const lists = when(
-    usage.list,
-    `export type ${names.list.pathType} =\n${union(bindings.lists.map((list) => pathTypeText(list.path)))};`,
-  );
-  const unbound = when(
-    bindings.unbound.length > 0,
-    `/** Fields with no generated control. They are in the store; bind them through \`${names.store}\`. */
-export type ${names.unboundPathType} =\n${union(bindings.unbound.map((field) => pathTypeText(field.path)))};`,
-  );
-  const variants = when(
-    usage.variant,
-    `export type ${names.variant.pathType} =\n${union(bindings.variants.map((entry) => pathTypeText(entry.field.path)))};`,
-  );
-  const all = [
-    ...kinds.filter((kind) => usage[kind]).map((kind) => names.hooks[kind].pathType),
-    ...(usage.list ? [names.list.pathType] : []),
-    ...(usage.variant ? [names.variant.pathType] : []),
-    ...(bindings.unbound.length > 0 ? [names.unboundPathType] : []),
-  ];
-
-  return `${section("Paths")}
-// One union per kind of control, so a typo'd path — or a number path handed to
-// a text control — fails to compile at the hook instead of rendering blank.
-${perKind.join("\n\n")}
-
-${lists}
-
-${variants}
-
-${unbound}
-
-export type ${names.pathType} = ${all.length === 0 ? "never" : all.join(" | ")};
-`;
-};
-
 const tablesSection = (bindings: FormBindings, usage: Usage): string =>
-  `${when(
-    usage.empties,
-    `
-/**
- * What a cleared control writes back, where that is not the default for its
- * kind ("" for text, undefined for everything else). Keyed by path pattern:
- * "*" stands for any row.
- */
-const emptyValues: Dict<null | undefined> = ${table(emptyEntries(bindings))};
-`,
-  )}${when(
+  `${when(usage.empties, emptyValuesTable(bindings, BLANKS))}${when(
     usage.date,
-    `
-type DateEncoding = "iso-date" | "iso-datetime" | "date" | "datetime";
-
-/** How each date is stored, where it is not plain "YYYY-MM-DD" text. */
-const dateEncodings: Dict<DateEncoding> = ${table(encodingEntries(bindings))};
-`,
-  )}${when(
-    usage.list,
-    `
-/** The row \`append\` adds to each list. */
-const blankRows: Dict<unknown> = ${table(
-      bindings.lists.map((list) => [tableKey(list.path), printValue(blankRowOf(list))]),
-    )};
-`,
-  )}${when(
-    usage.variant,
-    `
-/** Each union's tag property, and the blank value each of its branches starts from. */
-const unions: Dict<Readonly<{ tag: string; blanks: Readonly<Record<string, unknown>> }>> = ${table(
-      bindings.variants.map((entry) => [
-        tableKey(entry.field.path),
-        `{ tag: ${JSON.stringify(entry.discriminator)}, blanks: ${printValue(
-          Object.fromEntries(
-            entry.variants.map((variant) => [String(variant.tag), blankVariantOf(entry, variant)]),
-          ),
-        )} }`,
-      ]),
-    )};
-`,
-  )}`;
+    dateEncodingsTable(bindings),
+  )}${when(usage.list, blankRowsTable(bindings, BLANKS))}${when(usage.variant, unionsTable(bindings, BLANKS, false))}`;
 
 const helpersSection = (usage: Usage): string =>
   `${section("Path helpers")}
@@ -264,28 +85,7 @@ const setAt = (source: unknown, segments: readonly string[], value: unknown): un
 
 const dropKeys = <T>(dict: Dict<T>, drop: (key: string) => boolean): Dict<T> =>
   Object.fromEntries(Object.entries(dict).filter(([key]) => !drop(key)));
-${when(
-  usage.patterns,
-  `
-/** A concrete path's table key: row indexes become "*". */
-const patternOf = (path: string): string =>
-  segmentsOf(path)
-    .map((segment) => (/^\\d+$/.test(segment) ? "*" : segment))
-    .join(".");
-`,
-)}${when(
-    usage.empties,
-    `
-const emptyOf = <Fallback extends "" | undefined>(
-  path: string,
-  fallback: Fallback,
-): Fallback | null | undefined => {
-  const key = patternOf(path);
-
-  return key in emptyValues ? emptyValues[key] : fallback;
-};
-`,
-  )}${when(
+${when(usage.patterns, PATTERN_OF)}${when(usage.empties, EMPTY_OF)}${when(
     usage.number,
     `
 // Plain decimal notation only. Number() alone also reads "0x10" and "Infinity",
@@ -302,47 +102,7 @@ const parseNumber = (text: string): number | "empty" | "unfinished" => {
       : "unfinished";
 };
 `,
-  )}${when(
-    usage.date,
-    `
-const pad = (part: number): string => String(part).padStart(2, "0");
-
-const localDate = (date: Date): string =>
-  \`\${date.getFullYear()}-\${pad(date.getMonth() + 1)}-\${pad(date.getDate())}\`;
-
-const localDateTime = (date: Date): string =>
-  \`\${localDate(date)}T\${pad(date.getHours())}:\${pad(date.getMinutes())}\`;
-
-// Date controls speak local "YYYY-MM-DD" / "YYYY-MM-DDTHH:mm" text. These two
-// convert between that and whatever the schema stores.
-const dateToText = (value: unknown, encoding: DateEncoding): string => {
-  if (encoding === "iso-date") return typeof value === "string" ? value : "";
-
-  const date =
-    value instanceof Date ? value : typeof value === "string" ? new Date(value) : undefined;
-
-  return date === undefined || Number.isNaN(date.getTime())
-    ? ""
-    : encoding === "date"
-      ? localDate(date)
-      : localDateTime(date);
-};
-
-const textToDate = (text: string, encoding: DateEncoding): unknown => {
-  if (encoding === "iso-date") return text;
-
-  // "T00:00" pins a bare date to local midnight; without it the Date
-  // constructor reads "YYYY-MM-DD" as UTC and the day can shift by one.
-  const date = new Date(encoding === "date" ? \`\${text}T00:00\` : text);
-
-  return Number.isNaN(date.getTime())
-    ? undefined
-    : encoding === "iso-datetime"
-      ? date.toISOString()
-      : date;
-};
-`,
-  )}`;
+  )}${when(usage.date, DATE_HELPERS)}`;
 
 const storeSection = (input: StateAdapterInput, names: StoreNames, usage: Usage): string => `
 ${section("Validation")}
@@ -511,51 +271,6 @@ ${when(
     }
   },
 }));
-`;
-
-const handlesSection = (names: StoreNames, usage: Usage): string => `
-${section("Handles")}
-// What the hooks below return. The controls bind to these shapes and nothing
-// else, so swapping the UI kit never touches this file.
-${when(
-  usage.control || usage.variant,
-  `
-export type FieldHandle<Value> = Readonly<{
-  name: string;
-  /** Always the control's own type: text for inputs, a boolean for a switch. */
-  value: Value;
-  /** Set once the field has been left or a submit was attempted. */
-  error: string | undefined;
-  setValue: (next: Value) => void;
-  onBlur: () => void;
-}>;
-`,
-)}${when(
-  usage.choice,
-  `
-export type ${names.optionType} = Readonly<{ value: string | number; label: string }>;
-`,
-)}${when(
-  usage.list,
-  `
-export type ListHandle = Readonly<{
-  /** One stable key per row, in order. */
-  ids: readonly string[];
-  error: string | undefined;
-  append: () => void;
-  remove: (index: number) => void;
-}>;
-`,
-)}
-export type FormHandle = Readonly<{
-  submitting: boolean;
-  /** An error that belongs to no single field. */
-  error: string | undefined;
-  handleSubmit: (
-    onValid: (data: ${names.dataType}) => void | Promise<void>,
-  ) => (event: Readonly<{ preventDefault: () => void }>) => void;
-  reset: () => void;
-}>;
 `;
 
 const hooksSection = (names: StoreNames, usage: Usage): string => `
@@ -777,28 +492,19 @@ export const ${names.form} = (): FormHandle => {
 
 /** The state module's source. Unformatted; the CLI runs Prettier over it. */
 export const emitStore = (input: StateAdapterInput, names: StoreNames): string => {
-  const form: FormIR = input.form;
-  const bindings = collectBindings(form.fields);
+  const bindings = collectBindings(input.form.fields);
   const usage = usageOf(bindings);
 
   return `${when(usage.number, `import { useState } from "react";\n`)}import type { z } from "zod";
 import { create } from "zustand";
 
 import { ${input.schemaExport} } from "./${input.schemaModule}";
-${section("Values")}
-/**
- * The form's working values. Deliberately looser than the schema's input: a
- * number, choice or date the user has not filled in yet is \`undefined\` (or
- * \`null\` where the schema allows it), and validation reports the gap. Starting
- * a required number at 0 instead would submit a value nobody entered.
- */
-export type ${names.valuesType} = ${objectType(form.fields)};
-
-/** What \`onSubmit\` receives: the schema's parsed output. */
-export type ${names.dataType} = z.output<typeof ${input.schemaExport}>;
-
-export const ${names.initialValues}: ${names.valuesType} = ${initialValuesOf(form.fields)};
-${pathsSection(bindings, names, usage)}
-type Dict<T> = Readonly<Record<string, T | undefined>>;
+${valuesSection(input, names, BLANKS)}${pathsSection(
+    bindings,
+    names,
+    usage,
+    `They are in the store; bind them through \`${names.store}\`.`,
+  )}
+${DICT_TYPE}
 ${when(usage.patterns, section("Field tables"))}${tablesSection(bindings, usage)}${helpersSection(usage)}${storeSection(input, names, usage)}${handlesSection(names, usage)}${hooksSection(names, usage)}`;
 };

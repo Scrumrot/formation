@@ -50,4 +50,4 @@ jobs:
       # change altered real output without the diff being reviewed — fail, and
       # show the diff so the fix is "run pnpm golden and commit".
       - name: Goldens are up to date
-        run: git diff --exit-code -- examples/zustand-mui/src/generated
+        run: git diff --exit-code -- examples/golden/src/generated

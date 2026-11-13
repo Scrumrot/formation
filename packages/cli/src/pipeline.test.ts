@@ -7,15 +7,19 @@ import type { GeneratedForm } from "./pipeline.js";
 import { generateForm } from "./pipeline.js";
 
 // The fixtures are the golden project's own schemas, so what is asserted here
-// is the same input whose output examples/zustand-mui typechecks and runs.
+// is the same input whose output examples/golden typechecks and runs.
 const fixture = (name: string): string =>
-  fileURLToPath(new URL(`../../../examples/zustand-mui/schemas/${name}`, import.meta.url));
+  fileURLToPath(new URL(`../../../examples/golden/schemas/${name}`, import.meta.url));
 
-const outDir = fileURLToPath(new URL("../../../examples/zustand-mui/src/out", import.meta.url));
+const outDir = fileURLToPath(new URL("../../../examples/golden/src/out", import.meta.url));
 
-const stack = (schemaLibrary: Stack["schemaLibrary"], uiMajor = 9): Stack => ({
+const stack = (
+  schemaLibrary: Stack["schemaLibrary"],
+  stateLibrary: Stack["stateLibrary"] = "zustand",
+  uiMajor = 9,
+): Stack => ({
   framework: "react",
-  stateLibrary: "zustand",
+  stateLibrary,
   uiLibrary: "mui",
   uiMajor,
   schemaLibrary,
@@ -26,13 +30,19 @@ const stack = (schemaLibrary: Stack["schemaLibrary"], uiMajor = 9): Stack => ({
 const generate = async (
   name: string,
   schemaLibrary: Stack["schemaLibrary"],
-  extra: Readonly<{ select?: string; exportName?: string; name?: string }> = {},
+  extra: Readonly<{
+    select?: string;
+    exportName?: string;
+    name?: string;
+    state?: Stack["stateLibrary"];
+  }> = {},
 ): Promise<GeneratedForm> => {
+  const { state, ...request } = extra;
   const outcome = await generateForm({
     schemaPath: fixture(name),
-    stack: stack(schemaLibrary),
+    stack: stack(schemaLibrary, state),
     outDir,
-    ...extra,
+    ...request,
   });
 
   if (outcome.kind === "failed") {
@@ -43,6 +53,51 @@ const generate = async (
 
 const contentOf = (form: GeneratedForm, path: string): string =>
   form.files.find((file) => file.path === path)?.content ?? "";
+
+describe("the state library is a parameter", () => {
+  // The claim the adapter seam makes: what draws the form cannot tell what
+  // holds its state. If a UI file ever differs by more than the name of the
+  // module it imports from, a state adapter has leaked into the UI.
+  const sameUnder = async (file: (form: GeneratedForm) => string): Promise<void> => {
+    const [zustand, formstand] = await Promise.all([
+      generate("profile.ts", "zod", { state: "zustand" }),
+      generate("profile.ts", "zod", { state: "formstand" }),
+    ]);
+
+    expect(file(formstand).replaceAll('"./form"', '"./store"')).toBe(file(zustand));
+  };
+
+  it("emits identical controls for zustand and formstand", () =>
+    sameUnder((form) => contentOf(form, "controls.tsx")));
+
+  it("emits an identical form component", () =>
+    sameUnder((form) => contentOf(form, "ProfileForm.tsx")));
+
+  it("names the state module after what it holds", async () => {
+    const form = await generate("order.json", "json-schema", { state: "formstand" });
+
+    expect(form.files.map((file) => file.path)).toEqual([
+      "schema.ts",
+      "form.ts",
+      "controls.tsx",
+      "OrderForm.tsx",
+      "index.ts",
+    ]);
+    expect(contentOf(form, "index.ts")).toContain(
+      'export { orderForm, useOrderForm, orderInitialValues } from "./form";',
+    );
+  });
+
+  it("exports the same contract types from either state module", async () => {
+    const exported = async (state: Stack["stateLibrary"]): Promise<string | undefined> =>
+      contentOf(await generate("order.json", "json-schema", { state }), "index.ts")
+        .split("\n")
+        .find((line) => line.startsWith("export type {") && !line.includes("Props"))
+        ?.replace('"./form"', '"./store"');
+
+    expect(await exported("formstand")).toBe(await exported("zustand"));
+  });
+});
 
 describe("generateForm", () => {
   it("produces the same five-file folder for every input kind", async () => {

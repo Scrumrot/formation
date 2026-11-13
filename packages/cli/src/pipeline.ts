@@ -7,6 +7,7 @@ import type {
   GeneratedFile,
   Outcome,
   StateAdapter,
+  StateBinding,
   UiAdapter,
 } from "@formation/core";
 import { assembleForm, camelCase, failed, hasErrors, ok } from "@formation/core";
@@ -15,7 +16,8 @@ import { fromJsonSchema } from "@formation/ingest-json-schema";
 import { fromZodModule } from "@formation/ingest-zod";
 import type { Stack, StateLibraryId, UiLibraryId } from "@formation/registry";
 import { emitZodSchema } from "@formation/schema-zod";
-import { STORE_MODULE, zustandAdapter } from "@formation/state-zustand";
+import { formstandAdapter } from "@formation/state-formstand";
+import { zustandAdapter } from "@formation/state-zustand";
 import { muiAdapter, muiMajors } from "@formation/ui-mui";
 import { parse as parseYaml } from "yaml";
 
@@ -62,6 +64,7 @@ export type GeneratedForm = Readonly<{
 // every library the registry calls available must have an entry here.
 export const stateAdapters: Readonly<Partial<Record<StateLibraryId, StateAdapter>>> = {
   zustand: zustandAdapter,
+  formstand: formstandAdapter,
 };
 
 export const uiAdapters: Readonly<
@@ -178,16 +181,15 @@ const ingestDocument = async (request: GenerateRequest): Promise<Outcome<Ingeste
 const indexFile = (
   componentName: string,
   schemaExport: string,
-  values: readonly string[],
-  types: readonly string[],
+  state: StateBinding,
 ): GeneratedFile => ({
   path: "index.ts",
   content: [
     `export { ${componentName} } from "./${componentName}";`,
     `export type { ${componentName}Props } from "./${componentName}";`,
     `export { ${schemaExport} } from "./${SCHEMA_MODULE}";`,
-    `export { ${values.join(", ")} } from "./${STORE_MODULE}";`,
-    `export type { ${types.join(", ")} } from "./${STORE_MODULE}";`,
+    `export { ${state.publicValues.join(", ")} } from "./${state.module}";`,
+    `export type { ${state.publicTypes.join(", ")} } from "./${state.module}";`,
     "",
   ].join("\n"),
 });
@@ -254,12 +256,7 @@ export const generateForm = async (request: GenerateRequest): Promise<Outcome<Ge
     schemaFile,
     ...stateOutput.files,
     ...components,
-    indexFile(
-      assembled.componentName,
-      schemaExport,
-      stateOutput.binding.publicValues,
-      stateOutput.binding.publicTypes,
-    ),
+    indexFile(assembled.componentName, schemaExport, stateOutput.binding),
   ].map((file) => ({ ...file, content: `${HEADER}${file.content}` }));
 
   return ok(

@@ -187,7 +187,7 @@ export const registry = {
   frameworks: { react: { versions: ">=18", ext: "tsx", printer: "jsx" } /* … */ },
   stateLibraries: {
     zustand: { status: "available", frameworks: ["react"] },
-    formstand: { status: "planned", frameworks: ["react"] },
+    formstand: { status: "available", frameworks: ["react"] },
     "react-hook-form": { status: "planned", frameworks: ["react"] },
     // …
   },
@@ -198,7 +198,7 @@ export const registry = {
 } as const;
 ```
 
-**`planned` is a status, not an absence.** `--state formstand` answers "on the roadmap but
+**`planned` is a status, not an absence.** `--state react-hook-form` answers "on the roadmap but
 not implemented yet", where an unknown id answers "unknown". An entry is `available` only
 when an adapter exists; a test in the CLI fails if the registry and the adapter maps
 disagree in either direction.
@@ -222,9 +222,23 @@ Four adapter kinds, each with one job:
 No framework knowledge. `{ kind: "string", format: "email" }` → `<Input type="email" />`
 plus the shadcn import path.
 
-**State adapter** — emits the state module (for zustand: the whole store) and returns a
-`StateBinding` describing the hooks it exports. How a field binds, how errors are read, how
-submit wires up, how a `path` is serialized, what "blank" means: all of it lives here.
+**State adapter** — emits the state module (for zustand: the whole store; for formstand: a
+`createForm` call and wrappers over its hooks) and returns a `StateBinding` describing the
+hooks it exports. How a field binds, how errors are read, how submit wires up: all of it
+lives here.
+
+What does _not_ vary by adapter lives in `state-kit`, which every state adapter emits from:
+the working values and their blank starting state, the typed path unions, and the handle
+types.
+
+What a blank _is_ varies in exactly one case, and `state-kit` takes it as a parameter
+(`BlankPolicy`). A field that is both optional and nullable can honestly be blank as `null`
+or as `undefined`. A store the generator writes itself has no library to ask, so it says
+`null` and looks cleared values up in a generated table. formstand already answers the
+question — `useField` reads `emptyValue` off the schema, and says `undefined` — so the
+formstand adapter writes what formstand says and emits no table. The rule a library applies
+at run time is the rule its adapter prints the form's starting values under, so that typing
+into a field and deleting it again is a round trip rather than an edit.
 
 **Validator emitter** — emits the schema itself when the input carried no runtime validator
 (JSON Schema, OpenAPI, later TypeScript). A Zod input is never re-emitted: its own schema is
@@ -255,8 +269,12 @@ The load-bearing detail: a field handle's `value` is always the **control's** ty
 `string` for text, number, choice and date controls, `boolean` for a switch. Converting to
 and from the stored value (a number, a `Date`, `null` for a cleared nullable field, the
 half-typed `"1."` that is not a number yet) is the state adapter's job, because only it
-knows what blank means in its store. The UI adapter is left with nothing to decide but
+knows how its library stores a value. The UI adapter is left with nothing to decide but
 which component to draw.
+
+Two adapters implement the contract, and a test pins what that buys: for the same schema,
+`controls.tsx` and the form component are byte-identical under zustand and formstand apart
+from the name of the module they import from.
 
 `core` owns the walk that puts the two together (`assembleForm`): which fields nest in which
 sections, which arrays become list components, what path each control binds. It asks the UI
@@ -379,14 +397,16 @@ packages/
   ingest-zod/         … ingest-typescript, ingest-yup, …                                   ✔
   schema-zod/         FormIR → a Zod validator, for inputs with none                       ✔
   framework-react/    printer   (… -vue, -svelte, -solid, …)                               ✔
-  state-zustand/      … state-formstand, state-rhf, state-tanstack, state-formik           ✔
+  state-kit/          what every state adapter emits alike: values, paths, handles, blanks ✔
+  state-zustand/      a self-contained store                                               ✔
+  state-formstand/    a formstand form  (… state-rhf, state-tanstack, state-formik)        ✔
   ui-mui/             … ui-shadcn, ui-mantine, ui-vuetify                                  ✔
   cli/                @formation/cli                                                       ✔
   plugin-kit/         public adapter interfaces + test harness for adapter authors
   tests-vitest/       … tests-jest, tests-playwright
   create/             create-formation (app mode, phase 2)
 examples/
-  zustand-mui/        golden project (see §10); its schemas/ are the canonical fixtures    ✔
+  golden/             golden project (see §10); its schemas/ are the canonical fixtures    ✔
 ```
 
 Two departures from the first draft. OpenAPI lives inside `ingest-json-schema` rather than
@@ -421,6 +441,12 @@ Three layers:
 
 Without layer 3, generated code rots silently and the first person to notice is a user.
 
+`examples/golden` is that layer today. It samples the matrix along each axis rather than
+covering the product: both MUI majors under zustand, and formstand under the current MUI.
+One spec file runs against every target; where an assertion has to look at stored state it
+goes through a per-library harness, and the spec is typechecked against each harness so
+they cannot drift into different shapes.
+
 ---
 
 ## 11. v0.1 milestones
@@ -433,11 +459,12 @@ The slice: **Zod + JSON Schema + OpenAPI in → React + TS + zustand + MUI 7/9 o
 4. ✔ ComponentIR + the JSX printer + Prettier pass
 5. ✔ `ui-mui` (majors 7 and 9), `state-zustand`, `schema-zod`
 6. ✔ `cli generate` — raw flags, `--dry-run`, manifest-guarded writes
-7. ✔ Golden project (`examples/zustand-mui`), run locally with `pnpm golden`
+7. ✔ Golden project (`examples/golden`), run locally with `pnpm golden`
 8. ◐ Wizard — asks, prints the equivalent command, generates. Not yet: a config file.
 9. ✔ Golden project in CI (`.github/workflows/ci.yml`: format, build, unit tests, the
    golden run, and a check that the committed goldens match what the CLI emits)
-10. ☐ `tests-vitest` — TestCase derivation + component spec emitter
+10. ✔ `state-formstand`, and `state-kit` extracted from what the two adapters share
+11. ☐ `tests-vitest` — TestCase derivation + component spec emitter
 
 **Known gaps in the pilot's output**, each degraded loudly rather than silently (a `TODO` in
 the component, the field kept in the store and schema, a diagnostic on stderr):
@@ -449,14 +476,26 @@ the component, the field kept in the store and schema, a diagnostic on stderr):
   cleared control writes back is looked up by path and so is one value for both branches;
   the generator warns and names it (`emit/branch-conflict`).
 - **File inputs, tuples, records/maps, recursive and external `$ref`s.**
-- **Async Zod schemas.** The store validates with `safeParse`, which throws on an async
-  refinement.
+- **Async Zod schemas.** The zustand store validates with `safeParse`, which throws on an
+  async refinement. formstand validates async schemas itself, but the golden project does
+  not exercise that yet.
 - **JavaScript output** (`--syntax js`) and **every test runner**: accepted as ids, refused
   as not implemented.
 
-Next state adapter: **formstand**. It is the cheapest second implementation (emit calls
-into a library instead of a store) and the first real test of whether the handle contract
-in §6 was shaped by zustand's needs or by the problem's.
+**What the second state adapter showed.** formstand went in without a change to the handle
+contract or to `ui-mui`: the same spec file passes against both, and the UI files are
+byte-identical. Two things did move. The parts of a state module that have nothing to do
+with the library (values, paths, handle types) were extracted into `state-kit`. And one
+real divergence surfaced — formstand's own answer to "what does a cleared optional-and-
+nullable field hold" differs from the generator's. The library's answer wins in its own
+output: a generated formstand control clears a field to what formstand's own components
+would, at the price that this one value differs between `--state zustand` and
+`--state formstand`.
+
+Next state adapter: **react-hook-form**. formstand is itself a zustand store, so it was the
+friendly case. react-hook-form registers uncontrolled inputs and owns its own validation
+resolver; if the contract was shaped by zustand's needs rather than the problem's, that is
+where it will show.
 
 Then, before broadening: **add Vue or Svelte second, not fifth.** The render-tree IR is a
 hypothesis until a non-JSX printer exists. Everything about the adapter API should be
@@ -467,11 +506,12 @@ considered provisional until that happens — which is an argument for tagging v
 
 ## 12. Risks worth naming now
 
-- **The handle contract has one implementation.** §6's field/list/form handles were designed
-  against zustand, where the adapter writes the hooks and can make them any shape. A form
-  library brings hooks of its own; if `react-hook-form`'s `register` cannot be wrapped into
-  a `FieldHandle` without an extra render or a lost feature, the contract moves. Treat it
-  as provisional until the second state adapter lands.
+- **The handle contract has two implementations, and they are cousins.** §6's
+  field/list/form handles were designed against zustand, and the second adapter, formstand,
+  is a zustand store underneath: both hand a controlled value to the control. A form library
+  built on uncontrolled inputs is a different shape; if `react-hook-form`'s `register`
+  cannot be wrapped into a `FieldHandle` without an extra render or a lost feature, the
+  contract moves. Treat it as provisional until that adapter lands.
 - **Self-contained output duplicates its runtime.** Each generated store carries its own
   ~150 lines of path and validation plumbing, which is the price of "no runtime package".
   Ten forms is ten copies. If that grates, the fix is an opt-in shared module emitted once
