@@ -6,7 +6,9 @@
     { "path": "./packages/ingest-json-schema" },
     { "path": "./packages/ingest-zod" },
     { "path": "./packages/schema-zod" },
+    { "path": "./packages/state-kit" },
     { "path": "./packages/state-zustand" },
+    { "path": "./packages/state-formstand" },
     { "path": "./packages/ui-mui" },
     { "path": "./packages/framework-react" },
     { "path": "./packages/cli" }

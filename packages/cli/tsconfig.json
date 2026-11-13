@@ -8,13 +8,32 @@
   "include": ["src/**/*"],
   "exclude": ["src/**/*.test.ts"],
   "references": [
-    { "path": "../core" },
-    { "path": "../registry" },
-    { "path": "../ingest-json-schema" },
-    { "path": "../ingest-zod" },
-    { "path": "../schema-zod" },
-    { "path": "../state-zustand" },
-    { "path": "../ui-mui" },
-    { "path": "../framework-react" }
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../registry"
+    },
+    {
+      "path": "../ingest-json-schema"
+    },
+    {
+      "path": "../ingest-zod"
+    },
+    {
+      "path": "../schema-zod"
+    },
+    {
+      "path": "../state-zustand"
+    },
+    {
+      "path": "../ui-mui"
+    },
+    {
+      "path": "../framework-react"
+    },
+    {
+      "path": "../state-formstand"
+    }
   ]
 }

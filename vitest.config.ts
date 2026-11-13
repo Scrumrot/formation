@@ -7,8 +7,8 @@ const source = (name: string): string =>
 
 // One root project rather than per-package configs: every package here is pure
 // TypeScript with no environment of its own, so splitting them would buy
-// nothing but nine more config files to keep in sync. The generated *output*
-// does need a DOM to be tested, and that lives in examples/zustand-mui with its
+// nothing but a config file per package to keep in sync. The generated *output*
+// does need a DOM to be tested, and that lives in examples/golden with its
 // own config.
 export const config = defineConfig({
   resolve: {
@@ -21,7 +21,9 @@ export const config = defineConfig({
       "@formation/ingest-json-schema": source("ingest-json-schema"),
       "@formation/ingest-zod": source("ingest-zod"),
       "@formation/schema-zod": source("schema-zod"),
+      "@formation/state-kit": source("state-kit"),
       "@formation/state-zustand": source("state-zustand"),
+      "@formation/state-formstand": source("state-formstand"),
       "@formation/ui-mui": source("ui-mui"),
       "@formation/framework-react": source("framework-react"),
     },

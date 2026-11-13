@@ -162,7 +162,7 @@ export const stateLibraries: Readonly<Record<StateLibraryId, StateLibrary>> = {
   },
   formstand: {
     label: "formstand",
-    status: "planned",
+    status: "available",
     package: "formstand",
     frameworks: ["react"],
   },

@@ -1,11 +1,9 @@
 import type { StateAdapter } from "@formation/core";
 import { collectBindings } from "@formation/core";
+import { bindingOf, branchConflicts, tabledBlank } from "@formation/state-kit";
 
-import { branchConflicts } from "./conflicts.js";
 import { emitStore } from "./emit-store.js";
-import { STORE_MODULE, bindingOf, storeNames } from "./names.js";
-
-export { STORE_MODULE } from "./names.js";
+import { BLANKS, STORE_MODULE, storeNames } from "./names.js";
 
 /**
  * The zustand state adapter: one self-contained store module per form, and a
@@ -15,8 +13,8 @@ export const zustandAdapter: StateAdapter = (input) => {
   const names = storeNames(input.form.name);
 
   return {
-    binding: bindingOf(names),
+    binding: bindingOf(names, STORE_MODULE, names.store),
     files: [{ path: `${STORE_MODULE}.ts`, content: emitStore(input, names) }],
-    diagnostics: branchConflicts(collectBindings(input.form.fields)),
+    diagnostics: branchConflicts(collectBindings(input.form.fields), tabledBlank(BLANKS)),
   };
 };

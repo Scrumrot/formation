@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      "@generated/*": ["./src/generated/zustand-mui9/*"],
+      "@harness": ["./src/harness/zustand.ts"]
+    }
+  },
+  "include": [
+    "schemas",
+    "src/generated/zustand-mui9",
+    "src/*.tsx",
+    "src/harness/zustand.ts",
+    "src/typed-paths/zustand.ts"
+  ]
+}

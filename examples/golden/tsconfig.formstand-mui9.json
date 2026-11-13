@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      "@generated/*": ["./src/generated/formstand-mui9/*"],
+      "@harness": ["./src/harness/formstand.ts"]
+    }
+  },
+  // The spec file is included here as well as under zustand: it reaches state
+  // only through `@harness`, and typechecking it against both harnesses is what
+  // keeps the two from drifting into different shapes.
+  "include": [
+    "schemas",
+    "src/generated/formstand-mui9",
+    "src/*.tsx",
+    "src/harness/formstand.ts",
+    "src/typed-paths/formstand.ts"
+  ]
+}
