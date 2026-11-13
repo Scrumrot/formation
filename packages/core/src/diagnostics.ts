@@ -16,11 +16,13 @@ export type DiagnosticCode =
   | "schema/message-lost"
   | "schema/ref-unresolved"
   | "schema/dialect-approximated"
+  | "schema/blank-allowed"
   // Stack selection
   | "stack/unknown-option"
   | "stack/incompatible"
   // Emit
   | "emit/capability-unsupported"
+  | "emit/branch-conflict"
   | "emit/placeholder-required";
 
 export type DiagnosticSeverity = "error" | "warning" | "info";

@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to the same branch makes the older run's answer irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reads the version from package.json's `packageManager`, so CI and local
+      # installs cannot drift onto different pnpm majors.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Format
+        run: pnpm format:check
+
+      - name: Build and typecheck
+        run: pnpm build
+
+      - name: Unit tests
+        run: pnpm test
+
+      # Layer 3 of docs/plan.md §10: regenerate the golden forms with the CLI as
+      # built, typecheck them against each supported MUI major's real
+      # declarations, then render and drive them in a DOM on each major.
+      - name: Golden project
+        run: pnpm golden
+
+      # The goldens are committed. If regenerating changed them, a generator
+      # change altered real output without the diff being reviewed — fail, and
+      # show the diff so the fix is "run pnpm golden and commit".
+      - name: Goldens are up to date
+        run: git diff --exit-code -- examples/zustand-mui/src/generated

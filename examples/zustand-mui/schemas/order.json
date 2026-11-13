@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Order",
+  "description": "A purchase order, as the fulfilment API accepts it.",
+  "type": "object",
+  "required": ["customer", "currency", "lines", "placedAt", "express"],
+  "properties": {
+    "customer": { "$ref": "#/$defs/Customer" },
+    "currency": {
+      "oneOf": [
+        { "const": "USD", "title": "US dollar" },
+        { "const": "EUR", "title": "Euro" },
+        { "const": "GBP", "title": "Pound sterling" }
+      ],
+      "default": "USD"
+    },
+    "priority": {
+      "type": "integer",
+      "enum": [1, 2, 3],
+      "x-enumNames": ["Low", "Normal", "Urgent"]
+    },
+    "placedAt": { "type": "string", "format": "date-time" },
+    "deliverBy": { "type": ["string", "null"], "format": "date" },
+    "express": { "type": "boolean", "default": false },
+    "discount": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 100,
+      "multipleOf": 0.5,
+      "description": "Percent off the order total."
+    },
+    "notes": { "type": "string", "maxLength": 1000 },
+    "lines": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/Line" }
+    },
+    "metadata": { "type": "object", "additionalProperties": { "type": "string" } }
+  },
+  "$defs": {
+    "Customer": {
+      "allOf": [
+        { "$ref": "#/$defs/Person" },
+        {
+          "type": "object",
+          "required": ["email"],
+          "properties": {
+            "email": { "type": "string", "format": "email" },
+            "website": { "type": "string", "format": "uri" }
+          }
+        }
+      ]
+    },
+    "Person": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "title": "Full name" }
+      }
+    },
+    "Line": {
+      "type": "object",
+      "required": ["sku", "quantity"],
+      "properties": {
+        "sku": { "type": "string", "minLength": 3, "pattern": "^[A-Z0-9-]+$", "title": "SKU" },
+        "quantity": { "type": "integer", "minimum": 1, "default": 1 },
+        "giftWrap": { "type": "boolean" }
+      }
+    }
+  }
+}

@@ -1,10 +1,10 @@
 export type {
   Framework,
   FrameworkId,
-  FormLibrary,
-  FormLibraryId,
   SchemaLibrary,
   SchemaLibraryId,
+  StateLibrary,
+  StateLibraryId,
   Status,
   TestRunner,
   TestRunnerId,
@@ -12,12 +12,12 @@ export type {
   UiLibraryId,
 } from "./catalog.js";
 export {
-  formLibraries,
-  formLibraryIds,
   frameworkIds,
   frameworks,
   schemaLibraries,
   schemaLibraryIds,
+  stateLibraries,
+  stateLibraryIds,
   testRunnerIds,
   testRunners,
   uiLibraries,
@@ -25,4 +25,9 @@ export {
 } from "./catalog.js";
 
 export type { Stack, StackResolution, StackSelection, Syntax } from "./resolve-stack.js";
-export { compatibleFormLibraries, compatibleUiLibraries, resolveStack } from "./resolve-stack.js";
+export {
+  compatibleStateLibraries,
+  compatibleUiLibraries,
+  resolveStack,
+  uiSelection,
+} from "./resolve-stack.js";

@@ -5,25 +5,37 @@ import { stackToCommand } from "./stack-command.js";
 
 const pilot: Stack = {
   framework: "react",
-  formLibrary: "formstand",
-  uiLibrary: "shadcn",
+  stateLibrary: "zustand",
+  uiLibrary: "mui",
+  uiMajor: 9,
   schemaLibrary: "zod",
   syntax: "ts",
-  testRunners: ["vitest"],
+  testRunners: [],
 };
 
 describe("stackToCommand", () => {
   it("round-trips a stack into flags the raw CLI accepts", () => {
     const command = stackToCommand("./schemas/user.ts", pilot, "./src/forms");
 
-    expect(command).toContain("--framework react");
-    expect(command).toContain("--form formstand");
-    expect(command).toContain("--tests vitest");
+    expect(command).toContain("--state zustand");
+    expect(command).toContain("--schema zod");
+    expect(command).toContain("--out ./src/forms");
+  });
+
+  it("always spells the UI major out", () => {
+    // A saved command must keep meaning the same MUI after the default moves on.
+    expect(stackToCommand("./schemas/user.ts", pilot, "./out")).toContain("--ui mui@9");
+  });
+
+  it("continues lines with a backslash so the output pastes into a shell", () => {
+    const backslash = String.fromCharCode(92);
+
+    expect(stackToCommand("./schemas/user.ts", pilot, "./out")).toContain(
+      ` ${backslash}\n  --state`,
+    );
   });
 
   it("omits --tests entirely when no runners were chosen", () => {
-    const command = stackToCommand("./schemas/user.ts", { ...pilot, testRunners: [] }, "./out");
-
-    expect(command).not.toContain("--tests");
+    expect(stackToCommand("./schemas/user.ts", pilot, "./out")).not.toContain("--tests");
   });
 });

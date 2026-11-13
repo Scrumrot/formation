@@ -1,0 +1,26 @@
+{
+  "name": "@formation/ingest-json-schema",
+  "version": "0.0.0",
+  "description": "JSON Schema and OpenAPI documents to FormIR.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean"
+  },
+  "dependencies": {
+    "@formation/core": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

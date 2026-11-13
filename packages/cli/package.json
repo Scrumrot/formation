@@ -19,14 +19,22 @@
   "scripts": {
     "build": "tsc --build",
     "clean": "tsc --build --clean",
-    "dev": "node --experimental-strip-types ./src/bin.ts"
+    "dev": "node ./dist/bin.js"
   },
   "dependencies": {
     "@clack/prompts": "^0.11.0",
     "@formation/core": "workspace:*",
+    "@formation/framework-react": "workspace:*",
+    "@formation/ingest-json-schema": "workspace:*",
+    "@formation/ingest-zod": "workspace:*",
     "@formation/registry": "workspace:*",
+    "@formation/schema-zod": "workspace:*",
+    "@formation/state-zustand": "workspace:*",
+    "@formation/ui-mui": "workspace:*",
     "commander": "^14.0.0",
-    "picocolors": "^1.1.1"
+    "picocolors": "^1.1.1",
+    "prettier": "^3.6.2",
+    "yaml": "^2.8.0"
   },
   "publishConfig": {
     "access": "public"

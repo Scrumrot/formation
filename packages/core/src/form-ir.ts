@@ -2,7 +2,7 @@ import type { Diagnostic } from "./diagnostics.js";
 
 /**
  * FormIR is the semantic layer: what the form *means*, independent of any
- * framework, form library, or UI kit. Every ingest adapter produces one; every
+ * framework, state library, or UI kit. Every ingest adapter produces one; every
  * emitter consumes one.
  *
  * It is deliberately NOT JSON Schema. JSON Schema is the ingest hub (see
@@ -24,6 +24,13 @@ export type Constraint<T> = Readonly<{
   message?: Message;
 }>;
 
+/**
+ * A numeric bound. `exclusive` is carried rather than folded into the value
+ * (`> 0` is not `>= 1` for a non-integer), because the validator emitter has to
+ * choose between `.gt()` and `.min()` and cannot recover the difference later.
+ */
+export type Bound = Constraint<number> & Readonly<{ exclusive?: boolean }>;
+
 export type EnumOption = Readonly<{
   value: string | number;
   label: string;
@@ -37,6 +44,14 @@ export type EnumOption = Readonly<{
  */
 export type StringFormat = "email" | "url" | "uuid" | "password" | "phone" | "multiline" | "color";
 
+/**
+ * How a date travels in the user's data. A JSON document carries ISO text; a
+ * Zod `z.date()` carries a `Date`. The control is the same either way, but the
+ * state adapter has to convert in opposite directions, so the IR cannot leave
+ * it to be guessed.
+ */
+export type DateEncoding = "iso-string" | "date-object";
+
 export type FieldShape =
   | Readonly<{
       kind: "string";
@@ -48,8 +63,8 @@ export type FieldShape =
   | Readonly<{
       kind: "number";
       integer: boolean;
-      min?: Constraint<number>;
-      max?: Constraint<number>;
+      min?: Bound;
+      max?: Bound;
       step?: number;
     }>
   | Readonly<{ kind: "boolean" }>
@@ -57,6 +72,7 @@ export type FieldShape =
   | Readonly<{
       kind: "date";
       time: boolean;
+      encoding: DateEncoding;
       min?: Constraint<string>;
       max?: Constraint<string>;
     }>
@@ -86,15 +102,29 @@ export type FieldShape =
    */
   | Readonly<{ kind: "unsupported"; reason: string }>;
 
+/**
+ * Stands in for "any row" in a path that runs through an array:
+ * `["contacts", "*", "phone"]`. Ingest refuses a property literally named `*`
+ * (see `isAddressable`), so the marker can never collide with real data.
+ */
+export const INDEX_SEGMENT = "*";
+
 export type FieldNode = Readonly<{
   /**
    * Path as segments, never a joined string. `address.street` vs
-   * `address[street]` vs a tuple is a form-library concern, so the form adapter
-   * serializes it and FormIR refuses to pick a side.
+   * `address[street]` vs a tuple is a state-library concern, so the state
+   * adapter serializes it and FormIR refuses to pick a side.
    */
   path: readonly string[];
   label: string;
+  /** The key may be absent from the data. */
   optional: boolean;
+  /**
+   * The value may be `null`. Separate from `optional` because the two blank a
+   * control differently — one writes `undefined`, the other `null` — and an
+   * API that distinguishes them will reject the wrong one.
+   */
+  nullable: boolean;
   description?: string;
   defaultValue?: unknown;
   shape: FieldShape;
@@ -140,3 +170,13 @@ const descendants = (shape: FieldShape): readonly FieldNode[] => {
 /** True when any field in the tree could not be fully represented. */
 export const hasUnsupportedFields = (form: FormIR): boolean =>
   flattenFields(form.fields).some((field) => field.shape.kind === "unsupported");
+
+/**
+ * Whether a property name can be one segment of a dotted path. Generated state
+ * code addresses fields as `a.b.0.c`, so a name containing a dot would split in
+ * two, an all-digit name would be mistaken for a row index, and `*` is the
+ * row marker itself. Ingest degrades such a property to `unsupported` instead
+ * of emitting a binding that silently reads the wrong field.
+ */
+export const isAddressable = (name: string): boolean =>
+  name.length > 0 && !name.includes(".") && !/^\d+$/.test(name) && name !== INDEX_SEGMENT;

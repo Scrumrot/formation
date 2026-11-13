@@ -11,11 +11,12 @@ import type { Stack, StackSelection } from "@formation/registry";
 export const stackToCommand = (schemaPath: string, stack: Stack, outDir: string): string =>
   [
     `formation generate ${schemaPath}`,
-    `--framework ${stack.framework}`,
-    `--form ${stack.formLibrary}`,
-    `--ui ${stack.uiLibrary}`,
+    `--state ${stack.stateLibrary}`,
+    // The major is always spelled out, even when it is the current one: a
+    // command saved today must not start meaning a different MUI next year.
+    `--ui ${stack.uiMajor === undefined ? stack.uiLibrary : `${stack.uiLibrary}@${stack.uiMajor}`}`,
     `--schema ${stack.schemaLibrary}`,
-    `--syntax ${stack.syntax}`,
+    `--framework ${stack.framework}`,
     ...(stack.testRunners.length > 0 ? [`--tests ${stack.testRunners.join(",")}`] : []),
     `--out ${outDir}`,
   ].join(" \\\n  ");
@@ -23,7 +24,7 @@ export const stackToCommand = (schemaPath: string, stack: Stack, outDir: string)
 export const toSelection = (
   options: Readonly<{
     framework: string;
-    form: string;
+    state: string;
     ui: string;
     schema: string;
     syntax: string;
@@ -31,7 +32,7 @@ export const toSelection = (
   }>,
 ): StackSelection => ({
   framework: options.framework,
-  formLibrary: options.form,
+  stateLibrary: options.state,
   uiLibrary: options.ui,
   schemaLibrary: options.schema,
   syntax: options.syntax,

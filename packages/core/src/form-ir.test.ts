@@ -1,13 +1,37 @@
 import { describe, expect, it } from "vitest";
 
 import type { FieldNode, FormIR } from "./form-ir.js";
-import { flattenFields, hasUnsupportedFields } from "./form-ir.js";
+import { flattenFields, hasUnsupportedFields, isAddressable } from "./form-ir.js";
 
 const field = (path: readonly string[], shape: FieldNode["shape"]): FieldNode => ({
   path,
   label: path[path.length - 1] ?? "",
   optional: false,
+  nullable: false,
   shape,
+});
+
+describe("isAddressable", () => {
+  it("refuses names that would corrupt a dotted path", () => {
+    // Each would be read back as something else: two segments, a row index,
+    // the any-row marker, or nothing at all.
+    expect(["a.b", "0", "42", "*", ""].map(isAddressable)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+  });
+
+  it("accepts ordinary keys, including ones that are not identifiers", () => {
+    expect(["email", "first-name", "2fa", "x1"].map(isAddressable)).toEqual([
+      true,
+      true,
+      true,
+      true,
+    ]);
+  });
 });
 
 describe("flattenFields", () => {

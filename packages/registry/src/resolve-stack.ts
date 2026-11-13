@@ -1,20 +1,20 @@
 import type { Diagnostic } from "@formation/core";
 
 import type {
-  FormLibraryId,
   FrameworkId,
   SchemaLibraryId,
+  StateLibraryId,
   Status,
   TestRunnerId,
   UiLibraryId,
 } from "./catalog.js";
 import {
-  formLibraries,
-  formLibraryIds,
   frameworkIds,
   frameworks,
   schemaLibraries,
   schemaLibraryIds,
+  stateLibraries,
+  stateLibraryIds,
   testRunnerIds,
   testRunners,
   uiLibraries,
@@ -25,7 +25,8 @@ export type Syntax = "ts" | "js";
 
 export type StackSelection = Readonly<{
   framework: string;
-  formLibrary: string;
+  stateLibrary: string;
+  /** A UI library id, optionally pinned to a major: `mui` or `mui@7`. */
   uiLibrary: string;
   schemaLibrary: string;
   syntax: string;
@@ -34,8 +35,10 @@ export type StackSelection = Readonly<{
 
 export type Stack = Readonly<{
   framework: FrameworkId;
-  formLibrary: FormLibraryId;
+  stateLibrary: StateLibraryId;
   uiLibrary: UiLibraryId;
+  /** The major the output targets; absent for a library with nothing to pin. */
+  uiMajor?: number;
   schemaLibrary: SchemaLibraryId;
   syntax: Syntax;
   testRunners: readonly TestRunnerId[];
@@ -93,25 +96,70 @@ const pick = <Id extends string>(
 const problemOf = <Id extends string>(lookup: Lookup<Id>): readonly Diagnostic[] =>
   lookup.kind === "problem" ? [lookup.problem] : [];
 
+/** Splits `mui@7` into the library id and the pinned major, if any. */
+export const uiSelection = (value: string): Readonly<{ id: string; major: string | undefined }> => {
+  const at = value.indexOf("@");
+
+  return at === -1
+    ? { id: value, major: undefined }
+    : { id: value.slice(0, at), major: value.slice(at + 1) };
+};
+
+type MajorLookup =
+  | Readonly<{ kind: "found"; major: number | undefined }>
+  | Readonly<{ kind: "problem"; problem: Diagnostic }>;
+
+/**
+ * An unsupported major is refused rather than approximated. Output is verified
+ * against each listed major's real type declarations; emitting for an unlisted
+ * one would be claiming a check that was never run.
+ */
+const pickMajor = (id: UiLibraryId, requested: string | undefined): MajorLookup => {
+  const library = uiLibraries[id];
+  const majors = library.majors;
+
+  if (majors === undefined) {
+    return requested === undefined
+      ? { kind: "found", major: undefined }
+      : {
+          kind: "problem",
+          problem: incompatible(
+            `UI library "${id}" takes no version; write "${id}", not "${id}@${requested}".`,
+          ),
+        };
+  }
+  if (requested === undefined) return { kind: "found", major: majors.current };
+
+  const major = majors.supported.find((supported) => String(supported) === requested);
+
+  return major === undefined
+    ? {
+        kind: "problem",
+        problem: incompatible(
+          `${library.label} ${requested} is not a supported target. Supported: ${majors.supported
+            .map((supported) => `${id}@${supported}`)
+            .join(", ")} (bare "${id}" means ${id}@${majors.current}).`,
+        ),
+      }
+    : { kind: "found", major };
+};
+
 export const resolveStack = (selection: StackSelection): StackResolution => {
+  const ui = uiSelection(selection.uiLibrary);
+
   const framework = pick(
     "framework",
     selection.framework,
     frameworkIds,
     (id) => frameworks[id].status,
   );
-  const formLibrary = pick(
-    "form library",
-    selection.formLibrary,
-    formLibraryIds,
-    (id) => formLibraries[id].status,
+  const stateLibrary = pick(
+    "state library",
+    selection.stateLibrary,
+    stateLibraryIds,
+    (id) => stateLibraries[id].status,
   );
-  const uiLibrary = pick(
-    "UI library",
-    selection.uiLibrary,
-    uiLibraryIds,
-    (id) => uiLibraries[id].status,
-  );
+  const uiLibrary = pick("UI library", ui.id, uiLibraryIds, (id) => uiLibraries[id].status);
   const schemaLibrary = pick(
     "schema library",
     selection.schemaLibrary,
@@ -122,28 +170,39 @@ export const resolveStack = (selection: StackSelection): StackResolution => {
     pick("test runner", runner, testRunnerIds, (id) => testRunners[id].status),
   );
 
+  // "js" is a real option the flag accepts, but no printer emits it yet. Saying
+  // so beats silently writing TypeScript for someone who asked for JavaScript.
   const syntaxProblems: readonly Diagnostic[] =
-    selection.syntax === "ts" || selection.syntax === "js"
+    selection.syntax === "ts"
       ? []
-      : [unknownOption("syntax", selection.syntax, ["ts", "js"])];
+      : selection.syntax === "js"
+        ? [notYetImplemented("syntax", "js")]
+        : [unknownOption("syntax", selection.syntax, ["ts", "js"])];
+
+  const majorLookup: MajorLookup =
+    uiLibrary.kind === "found"
+      ? pickMajor(uiLibrary.id, ui.major)
+      : { kind: "found", major: undefined };
 
   const lookupProblems = [
     ...problemOf(framework),
-    ...problemOf(formLibrary),
+    ...problemOf(stateLibrary),
     ...problemOf(uiLibrary),
+    ...(majorLookup.kind === "problem" ? [majorLookup.problem] : []),
     ...problemOf(schemaLibrary),
     ...runners.flatMap(problemOf),
   ];
 
   // Cross-checks only run once every individual option is known — otherwise
-  // "vue is not implemented" would be followed by a bogus "shadcn doesn't
+  // "vue is not implemented" would be followed by a bogus "mui doesn't
   // support vue", which reads like two problems when there is one.
   if (
     lookupProblems.length > 0 ||
     syntaxProblems.length > 0 ||
     framework.kind !== "found" ||
-    formLibrary.kind !== "found" ||
+    stateLibrary.kind !== "found" ||
     uiLibrary.kind !== "found" ||
+    majorLookup.kind !== "found" ||
     schemaLibrary.kind !== "found"
   ) {
     return { kind: "invalid", diagnostics: [...lookupProblems, ...syntaxProblems] };
@@ -151,19 +210,20 @@ export const resolveStack = (selection: StackSelection): StackResolution => {
 
   const stack: Stack = {
     framework: framework.id,
-    formLibrary: formLibrary.id,
+    stateLibrary: stateLibrary.id,
     uiLibrary: uiLibrary.id,
+    ...(majorLookup.major === undefined ? {} : { uiMajor: majorLookup.major }),
     schemaLibrary: schemaLibrary.id,
-    syntax: selection.syntax === "js" ? "js" : "ts",
+    syntax: "ts",
     testRunners: runners.flatMap((runner) => (runner.kind === "found" ? [runner.id] : [])),
   };
 
   const crossChecks: readonly Diagnostic[] = [
-    ...(formLibraries[stack.formLibrary].frameworks.includes(stack.framework)
+    ...(stateLibraries[stack.stateLibrary].frameworks.includes(stack.framework)
       ? []
       : [
           incompatible(
-            `Form library "${stack.formLibrary}" does not support ${frameworks[stack.framework].label}.`,
+            `State library "${stack.stateLibrary}" does not support ${frameworks[stack.framework].label}.`,
           ),
         ]),
     ...(uiLibraries[stack.uiLibrary].frameworks.includes(stack.framework)
@@ -181,10 +241,11 @@ export const resolveStack = (selection: StackSelection): StackResolution => {
 };
 
 /** Options the wizard should offer, given what has been chosen so far. */
-export const compatibleFormLibraries = (framework: FrameworkId): readonly FormLibraryId[] =>
-  formLibraryIds.filter(
+export const compatibleStateLibraries = (framework: FrameworkId): readonly StateLibraryId[] =>
+  stateLibraryIds.filter(
     (id) =>
-      formLibraries[id].status === "available" && formLibraries[id].frameworks.includes(framework),
+      stateLibraries[id].status === "available" &&
+      stateLibraries[id].frameworks.includes(framework),
   );
 
 export const compatibleUiLibraries = (framework: FrameworkId): readonly UiLibraryId[] =>

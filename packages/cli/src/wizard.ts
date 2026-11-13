@@ -1,17 +1,19 @@
-import { cancel, intro, isCancel, multiselect, note, outro, select, text } from "@clack/prompts";
-import type { FrameworkId } from "@formation/registry";
+import { resolve } from "node:path";
+
+import { cancel, confirm, intro, isCancel, log, note, outro, select, text } from "@clack/prompts";
+import type { FrameworkId, UiLibraryId } from "@formation/registry";
 import {
-  compatibleFormLibraries,
+  compatibleStateLibraries,
   compatibleUiLibraries,
-  formLibraries,
   frameworks,
   resolveStack,
   schemaLibraries,
-  testRunners,
+  stateLibraries,
   uiLibraries,
 } from "@formation/registry";
 import pc from "picocolors";
 
+import { inferSchemaLibrary, runGenerate } from "./generate.js";
 import { printDiagnostics } from "./report.js";
 import { stackToCommand } from "./stack-command.js";
 
@@ -45,59 +47,59 @@ const required = <T>(value: T | symbol): T => {
   return value;
 };
 
+/**
+ * A question with one possible answer is not a question. It is answered for
+ * the user and said out loud, so the choice is visible without costing a
+ * keypress — and the prompt reappears by itself once a second option ships.
+ */
+const choose = async (message: string, options: Option[]): Promise<string> => {
+  const only = options[0];
+
+  if (options.length === 1 && only !== undefined) {
+    log.info(`${message}: ${only.label} ${pc.dim("(the only option so far)")}`);
+    return only.value;
+  }
+  return required(await select({ message, options }));
+};
+
 export const runWizard = async (): Promise<number> => {
   intro(pc.bgCyan(pc.black(" formation ")));
 
   const schemaPath = required(
     await text({
-      message: "Where is your schema?",
+      message: "Where is your schema? (a Zod module, or a JSON Schema / OpenAPI document)",
       placeholder: "./schemas/user.ts",
       validate: (value) => (value.length === 0 ? "A schema path is required." : undefined),
     }),
   );
 
-  const schemaLibrary = required(
-    await select({ message: "Schema library", options: shipped(schemaLibraries) }),
-  );
+  // Asked only when the file's extension does not already answer it, exactly
+  // as `--schema` is optional on the flag path.
+  const schemaLibrary =
+    (await inferSchemaLibrary(resolve(schemaPath))) ??
+    (await choose("What is the schema written in?", shipped(schemaLibraries)));
 
-  const framework = required(
-    await select({ message: "Framework", options: shipped(frameworks) }),
-  ) as FrameworkId;
-
-  const formLibrary = required(
-    await select({
-      message: "Form library",
-      options: named(compatibleFormLibraries(framework), formLibraries),
-    }),
+  const framework = (await choose("Framework", shipped(frameworks))) as FrameworkId;
+  const stateLibrary = await choose(
+    "State library",
+    named(compatibleStateLibraries(framework), stateLibraries),
   );
+  const uiLibrary = (await choose(
+    "UI library",
+    named(compatibleUiLibraries(framework), uiLibraries),
+  )) as UiLibraryId;
 
-  const uiLibrary = required(
-    await select({
-      message: "UI library",
-      options: named(compatibleUiLibraries(framework), uiLibraries),
-    }),
-  );
-
-  const syntax = required(
-    await select({
-      message: "Output syntax",
-      options: [
-        { value: "ts", label: "TypeScript" },
-        { value: "js", label: "JavaScript + JSDoc" },
-      ],
-    }),
-  );
-
-  // A list, not a choice: a project can legitimately want a component spec and
-  // an e2e spec, and those are different tests rather than one template in two
-  // dialects.
-  const tests = required(
-    await multiselect({
-      message: "Generate tests with",
-      options: shipped(testRunners),
-      required: false,
-    }),
-  );
+  const majors = uiLibraries[uiLibrary].majors;
+  const uiMajor =
+    majors === undefined
+      ? undefined
+      : await choose(
+          `${uiLibraries[uiLibrary].label} version`,
+          // Newest first, since that is what a new project most likely has installed.
+          [...majors.supported]
+            .sort((a, b) => b - a)
+            .map((major) => ({ value: String(major), label: `v${major}` })),
+        );
 
   const outDir = required(
     await text({
@@ -107,24 +109,43 @@ export const runWizard = async (): Promise<number> => {
     }),
   );
 
+  const ui = uiMajor === undefined ? uiLibrary : `${uiLibrary}@${uiMajor}`;
   const resolution = resolveStack({
     framework,
-    formLibrary,
-    uiLibrary,
+    stateLibrary,
+    uiLibrary: ui,
     schemaLibrary,
-    syntax,
-    testRunners: tests,
+    syntax: "ts",
+    testRunners: [],
   });
 
-  switch (resolution.kind) {
-    case "invalid":
-      printDiagnostics(resolution.diagnostics);
-      outro(pc.red("Could not resolve that stack."));
-      return 1;
-
-    case "valid":
-      note(stackToCommand(schemaPath, resolution.stack, outDir), "Equivalent command");
-      outro(pc.yellow("Not generating yet — no emitters are wired up (see docs/plan.md §11)."));
-      return 2;
+  if (resolution.kind === "invalid") {
+    printDiagnostics(resolution.diagnostics);
+    outro(pc.red("Could not resolve that stack."));
+    return 1;
   }
+
+  note(stackToCommand(schemaPath, resolution.stack, outDir), "Equivalent command");
+
+  const proceed = required(await confirm({ message: "Generate now?" }));
+
+  if (!proceed) {
+    outro("Nothing written. Run the command above when you are ready.");
+    return 0;
+  }
+
+  const code = await runGenerate(schemaPath, {
+    framework,
+    state: stateLibrary,
+    ui,
+    schema: schemaLibrary,
+    syntax: "ts",
+    tests: [],
+    out: outDir,
+    force: false,
+    dryRun: false,
+  });
+
+  outro(code === 0 ? pc.green("Done.") : pc.red("Generation failed."));
+  return code;
 };

@@ -1,0 +1,13 @@
+{
+  "title": "Consent",
+  "type": "object",
+  "required": ["terms"],
+  "properties": {
+    "terms": {
+      "type": "boolean",
+      "title": "I accept the terms",
+      "description": "Required to continue."
+    },
+    "marketing": { "type": "boolean", "title": "Send me product news" }
+  }
+}
