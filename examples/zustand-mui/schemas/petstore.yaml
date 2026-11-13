@@ -1,0 +1,77 @@
+openapi: 3.0.3
+info:
+  title: Pet store
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    NewPet:
+      type: object
+      required: [name, species, housing]
+      properties:
+        housing:
+          # A required union, told apart the OpenAPI way: an explicit
+          # discriminator over branches that live behind $refs.
+          oneOf:
+            - $ref: "#/components/schemas/Indoor"
+            - $ref: "#/components/schemas/Outdoor"
+          discriminator:
+            propertyName: kind
+          description: Where the pet lives.
+        name:
+          type: string
+          minLength: 1
+        species:
+          type: string
+          enum: [cat, dog, rabbit]
+        weightKg:
+          type: number
+          minimum: 0
+          nullable: true
+        vaccinated:
+          type: boolean
+        owner:
+          # OpenAPI 3.0 cannot put siblings beside a $ref; a one-branch allOf is
+          # the idiom for "this schema, described here".
+          allOf:
+            - $ref: "#/components/schemas/Owner"
+          description: Who to call about this pet.
+        nicknames:
+          type: array
+          items:
+            type: string
+    Owner:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        phone:
+          type: string
+          format: phone
+    Indoor:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [indoor]
+        litterTrained:
+          type: boolean
+    Outdoor:
+      type: object
+      required: [kind, fencedAreaM2]
+      properties:
+        kind:
+          type: string
+          enum: [outdoor]
+        fencedAreaM2:
+          type: number
+          minimum: 0
+          title: Fenced area (m²)
+    Unrelated:
+      type: object
+      properties:
+        ignored:
+          type: string

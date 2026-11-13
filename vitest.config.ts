@@ -1,10 +1,31 @@
+import { fileURLToPath } from "node:url";
+
 import { defineConfig } from "vitest/config";
+
+const source = (name: string): string =>
+  fileURLToPath(new URL(`./packages/${name}/src/index.ts`, import.meta.url));
 
 // One root project rather than per-package configs: every package here is pure
 // TypeScript with no environment of its own, so splitting them would buy
-// nothing but nine more config files to keep in sync. Revisit when a package
-// needs jsdom (the framework adapters eventually will).
+// nothing but nine more config files to keep in sync. The generated *output*
+// does need a DOM to be tested, and that lives in examples/zustand-mui with its
+// own config.
 export const config = defineConfig({
+  resolve: {
+    // Each package's `exports` points at `dist`, which only exists after a
+    // build. Aliasing to source lets `pnpm test` run on a fresh checkout and
+    // makes a test see the edit that was just made, not the last build of it.
+    alias: {
+      "@formation/core": source("core"),
+      "@formation/registry": source("registry"),
+      "@formation/ingest-json-schema": source("ingest-json-schema"),
+      "@formation/ingest-zod": source("ingest-zod"),
+      "@formation/schema-zod": source("schema-zod"),
+      "@formation/state-zustand": source("state-zustand"),
+      "@formation/ui-mui": source("ui-mui"),
+      "@formation/framework-react": source("framework-react"),
+    },
+  },
   test: {
     include: ["packages/*/src/**/*.test.ts"],
   },

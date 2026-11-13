@@ -1,0 +1,33 @@
+{
+  "name": "@formation/example-zustand-mui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Golden project: generated zustand + MUI forms, typechecked and run against MUI 7 and 9.",
+  "scripts": {
+    "generate": "node ./generate.mjs",
+    "typecheck": "tsc -p tsconfig.mui9.json && tsc -p tsconfig.mui7.json",
+    "test": "vitest run --config vitest.mui9.config.ts && vitest run --config vitest.mui7.config.ts"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/material": "^9.5.0",
+    "mui7": "npm:@mui/material@^7.3.11",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.6.7",
+    "zustand": "^5.1.0"
+  },
+  "devDependencies": {
+    "@formation/cli": "workspace:*",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

@@ -21,12 +21,20 @@ export type Status = "available" | "planned";
 
 export type FrameworkId = "react" | "vue" | "svelte" | "solid" | "preact" | "angular" | "lit";
 
-export type FormLibraryId =
-  "formstand" | "react-hook-form" | "tanstack-form" | "formik" | "final-form";
+/**
+ * What holds the form's state. One axis for both a bare state library (zustand,
+ * where the generator emits the whole store) and a form library (formstand,
+ * react-hook-form, where it emits calls into one): to the generator they answer
+ * the same question — where values live and how a field binds — and a project
+ * picks exactly one of them.
+ */
+export type StateLibraryId =
+  "zustand" | "formstand" | "react-hook-form" | "tanstack-form" | "formik" | "final-form";
 
-export type UiLibraryId = "shadcn" | "mui" | "mantine" | "vuetify";
+export type UiLibraryId = "mui" | "shadcn" | "mantine" | "vuetify";
 
-export type SchemaLibraryId = "zod" | "json-schema" | "typebox" | "valibot" | "arktype" | "yup";
+export type SchemaLibraryId =
+  "zod" | "json-schema" | "openapi" | "typebox" | "valibot" | "arktype" | "yup";
 
 export type TestRunnerId = "vitest" | "jest" | "playwright";
 
@@ -43,7 +51,7 @@ export type Framework = Readonly<{
   testingLibrary: string;
 }>;
 
-export type FormLibrary = Readonly<{
+export type StateLibrary = Readonly<{
   label: string;
   status: Status;
   package: string;
@@ -60,6 +68,12 @@ export type UiLibrary = Readonly<{
    * emitter needs to know which model it's dealing with.
    */
   distribution: "dependency" | "copy-in";
+  /**
+   * Majors the generated output is verified against, for libraries selected as
+   * `id@major`. Absent for a library with nothing to pin (copy-in source has
+   * no installed version to target).
+   */
+  majors?: Readonly<{ supported: readonly number[]; current: number }>;
 }>;
 
 export type SchemaLibrary = Readonly<{
@@ -139,10 +153,16 @@ export const frameworks: Readonly<Record<FrameworkId, Framework>> = {
   },
 };
 
-export const formLibraries: Readonly<Record<FormLibraryId, FormLibrary>> = {
+export const stateLibraries: Readonly<Record<StateLibraryId, StateLibrary>> = {
+  zustand: {
+    label: "Zustand",
+    status: "available",
+    package: "zustand",
+    frameworks: ["react"],
+  },
   formstand: {
     label: "formstand",
-    status: "available",
+    status: "planned",
     package: "formstand",
     frameworks: ["react"],
   },
@@ -173,13 +193,20 @@ export const formLibraries: Readonly<Record<FormLibraryId, FormLibrary>> = {
 };
 
 export const uiLibraries: Readonly<Record<UiLibraryId, UiLibrary>> = {
+  mui: {
+    label: "MUI",
+    status: "available",
+    frameworks: ["react"],
+    distribution: "dependency",
+    // No 8: @mui/material went from 7.x straight to 9.
+    majors: { supported: [7, 9], current: 9 },
+  },
   shadcn: {
     label: "shadcn/ui",
-    status: "available",
+    status: "planned",
     frameworks: ["react"],
     distribution: "copy-in",
   },
-  mui: { label: "MUI", status: "planned", frameworks: ["react"], distribution: "dependency" },
   mantine: {
     label: "Mantine",
     status: "planned",
@@ -193,6 +220,14 @@ export const schemaLibraries: Readonly<Record<SchemaLibraryId, SchemaLibrary>> =
   zod: { label: "Zod", status: "available", package: "zod", route: "to-json-schema" },
   "json-schema": {
     label: "JSON Schema",
+    status: "available",
+    package: "",
+    route: "native-json-schema",
+  },
+  openapi: {
+    // A document format rather than a library, but it sits on this axis
+    // because it answers the same question: what is the input written in.
+    label: "OpenAPI",
     status: "available",
     package: "",
     route: "native-json-schema",
@@ -215,7 +250,7 @@ export const schemaLibraries: Readonly<Record<SchemaLibraryId, SchemaLibrary>> =
 };
 
 export const testRunners: Readonly<Record<TestRunnerId, TestRunner>> = {
-  vitest: { label: "Vitest", status: "available", style: "component" },
+  vitest: { label: "Vitest", status: "planned", style: "component" },
   jest: { label: "Jest", status: "planned", style: "component" },
   playwright: { label: "Playwright", status: "planned", style: "browser" },
 };
@@ -224,7 +259,7 @@ export const testRunners: Readonly<Record<TestRunnerId, TestRunner>> = {
 // the narrow id type, so the assertion happens once here rather than at each
 // call site.
 export const frameworkIds = Object.keys(frameworks) as readonly FrameworkId[];
-export const formLibraryIds = Object.keys(formLibraries) as readonly FormLibraryId[];
+export const stateLibraryIds = Object.keys(stateLibraries) as readonly StateLibraryId[];
 export const uiLibraryIds = Object.keys(uiLibraries) as readonly UiLibraryId[];
 export const schemaLibraryIds = Object.keys(schemaLibraries) as readonly SchemaLibraryId[];
 export const testRunnerIds = Object.keys(testRunners) as readonly TestRunnerId[];

@@ -1,0 +1,5 @@
+# Written by pnpm in its own style; reformatting it would be undone on the next install.
+pnpm-lock.yaml
+
+dist/
+coverage/

@@ -1,3 +1,5 @@
+import { isAbsolute, relative } from "node:path";
+
 import type { Diagnostic, DiagnosticSeverity } from "@formation/core";
 import pc from "picocolors";
 
@@ -16,9 +18,15 @@ const label: Readonly<Record<DiagnosticSeverity, string>> = {
   info: "info",
 };
 
+// Diagnostics carry absolute paths (the pipeline does not know the working
+// directory); shown that way they bury the message under a home-directory
+// prefix. Relative to where the command ran is what the user typed.
+const shown = (source: string): string =>
+  isAbsolute(source) ? relative(process.cwd(), source).split("\\").join("/") : source;
+
 const format = (diagnostic: Diagnostic): string => {
   const where = diagnostic.path === undefined ? "" : pc.dim(` at ${diagnostic.path.join(".")}`);
-  const source = diagnostic.source === undefined ? "" : pc.dim(` (${diagnostic.source})`);
+  const source = diagnostic.source === undefined ? "" : pc.dim(` (${shown(diagnostic.source)})`);
   const tag = paint[diagnostic.severity](label[diagnostic.severity]);
 
   return `${tag} ${diagnostic.message}${where}${source} ${pc.dim(`[${diagnostic.code}]`)}`;

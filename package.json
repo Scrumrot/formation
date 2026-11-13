@@ -9,10 +9,11 @@
     "node": ">=20.11"
   },
   "scripts": {
-    "build": "pnpm -r --filter \"./packages/*\" run build",
+    "build": "tsc --build",
     "typecheck": "tsc --build",
     "test": "vitest run",
     "test:watch": "vitest",
+    "golden": "pnpm build && pnpm --filter @formation/example-zustand-mui run generate && pnpm --filter @formation/example-zustand-mui run typecheck && pnpm --filter @formation/example-zustand-mui run test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "changeset": "changeset",
