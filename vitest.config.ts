@@ -24,6 +24,7 @@ export const config = defineConfig({
       "@formation/state-kit": source("state-kit"),
       "@formation/state-zustand": source("state-zustand"),
       "@formation/state-formstand": source("state-formstand"),
+      "@formation/state-react-hook-form": source("state-react-hook-form"),
       "@formation/ui-mui": source("ui-mui"),
       "@formation/framework-react": source("framework-react"),
     },

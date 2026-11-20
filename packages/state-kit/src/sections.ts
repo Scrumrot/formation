@@ -225,6 +225,28 @@ const unions: Dict<Readonly<{ tag: string; ${when(withEmpty, "empty: null | unde
 )};
 `;
 
+/** Reads what was typed into a number control, for an adapter whose library has no reader of its own. */
+export const NUMBER_HELPERS = `
+// Plain decimal notation only. Number() alone also reads "0x10" and "Infinity",
+// neither of which anyone means in a form.
+//
+// The fraction's digits sit behind the dot, in one optional group. Written as
+// \\d+\\.?\\d* a run of digits can be split between the two quantifiers at every
+// position, and a long run that then fails to match is retried at each one:
+// 80,000 pasted digits and a letter held the tab for nine seconds.
+const DECIMAL_TEXT = /^[+-]?(\\d+(\\.\\d*)?|\\.\\d+)([eE][+-]?\\d+)?$/;
+
+const parseNumber = (text: string): number | "empty" | "unfinished" => {
+  const trimmed = text.trim();
+
+  return trimmed === ""
+    ? "empty"
+    : DECIMAL_TEXT.test(trimmed) && Number.isFinite(Number(trimmed))
+      ? Number(trimmed)
+      : "unfinished";
+};
+`;
+
 /** Converts between a date control's local text and whatever the schema stores. */
 export const DATE_HELPERS = `
 const pad = (part: number): string => String(part).padStart(2, "0");

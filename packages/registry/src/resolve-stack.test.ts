@@ -64,10 +64,10 @@ describe("resolveStack", () => {
   });
 
   it("says a planned state library is planned rather than unknown", () => {
-    const result = resolveStack({ ...pilot, stateLibrary: "react-hook-form" });
+    const result = resolveStack({ ...pilot, stateLibrary: "tanstack-form" });
 
     expect(result.kind === "invalid" && result.diagnostics[0]?.message).toMatch(
-      /state library "react-hook-form" is on the roadmap/,
+      /state library "tanstack-form" is on the roadmap/,
     );
   });
 
@@ -105,7 +105,7 @@ describe("uiSelection", () => {
 
 describe("what the wizard offers", () => {
   it("lists only shipped libraries for the framework", () => {
-    expect(compatibleStateLibraries("react")).toEqual(["zustand", "formstand"]);
+    expect(compatibleStateLibraries("react")).toEqual(["zustand", "formstand", "react-hook-form"]);
     expect(compatibleUiLibraries("react")).toEqual(["mui"]);
     expect(compatibleUiLibraries("vue")).toEqual([]);
   });

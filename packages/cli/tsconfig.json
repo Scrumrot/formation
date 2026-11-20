@@ -34,6 +34,9 @@
     },
     {
       "path": "../state-formstand"
+    },
+    {
+      "path": "../state-react-hook-form"
     }
   ]
 }

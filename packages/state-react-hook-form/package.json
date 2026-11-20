@@ -1,0 +1,27 @@
+{
+  "name": "@formation/state-react-hook-form",
+  "version": "0.0.0",
+  "description": "State adapter: a react-hook-form form validated through its zod resolver, and hooks over it.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean"
+  },
+  "dependencies": {
+    "@formation/core": "workspace:*",
+    "@formation/state-kit": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

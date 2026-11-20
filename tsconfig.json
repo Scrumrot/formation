@@ -9,6 +9,7 @@
     { "path": "./packages/state-kit" },
     { "path": "./packages/state-zustand" },
     { "path": "./packages/state-formstand" },
+    { "path": "./packages/state-react-hook-form" },
     { "path": "./packages/ui-mui" },
     { "path": "./packages/framework-react" },
     { "path": "./packages/cli" }

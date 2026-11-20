@@ -7,9 +7,10 @@ get a ready-to-use form.
 @formation is the same idea with the stack as a parameter: what holds the form's state and
 what draws it are independent choices, each served by its own adapter.
 
-> **Status: pre-alpha.** Zod, JSON Schema and OpenAPI in; a raw **zustand** store or a
-> **formstand** form, with **MUI 7 or 9** controls, out — for React + TypeScript. Other
-> stacks are listed in the registry as planned and refused by name. See
+> **Status: pre-alpha.** Zod, JSON Schema and OpenAPI in; a raw **zustand** store, a
+> **formstand** form or a **react-hook-form** form, with **MUI 7 or 9** controls, out — for
+> React + TypeScript. Other stacks are listed in the registry as planned and refused by
+> name. See
 > [`docs/plan.md`](./docs/plan.md) for the architecture and what comes next.
 
 ## Use it
@@ -19,6 +20,7 @@ formation generate ./schemas/profile.ts --state zustand --ui mui
 formation generate ./api/order.json     --state zustand --ui mui@7
 formation generate ./api/openapi.yaml   --state zustand --ui mui --select NewPet
 formation generate ./schemas/profile.ts --state formstand --ui mui
+formation generate ./schemas/profile.ts --state react-hook-form --ui mui
 formation wizard
 ```
 
@@ -27,7 +29,7 @@ The input kind is read from the file: a `.ts`/`.js` module is a Zod schema, a `.
 
 | Flag                         | Meaning                                                                            |
 | ---------------------------- | ---------------------------------------------------------------------------------- |
-| `--state <id>`               | what holds the form's values: `zustand` or `formstand`                             |
+| `--state <id>`               | what holds the form's values: `zustand`, `formstand` or `react-hook-form`          |
 | `--ui <id>`                  | UI library, optionally pinned: `mui` (= `mui@9`), `mui@7`, `mui@9`                 |
 | `--schema <id>`              | `zod`, `json-schema`, `openapi`; only needed when the extension does not say       |
 | `--select <name\|#/pointer>` | documents: which schema, by name or JSON pointer (required when there are several) |
@@ -44,7 +46,7 @@ One folder per form, with no runtime dependency on formation:
 ```
 ProfileForm/
   schema.ts        the Zod validator: re-exported for a Zod input, generated for a document
-  store.ts         the state: a zustand store (form.ts, a formstand form, with --state formstand)
+  store.ts         the state: a zustand store (or form.ts: a formstand or react-hook-form form)
                    and one hook per kind of control
   controls.tsx     MUI controls bound to those hooks
   ProfileForm.tsx  the form: sections for nested objects, a component per list, submit
@@ -57,8 +59,14 @@ import { ProfileForm } from "./components/forms/ProfileForm";
 <ProfileForm onSubmit={async (data) => api.save(data)} />;
 ```
 
-Your app supplies `zustand` 5, `zod` 4, `react`, and `@mui/material` 7 or 9 with its theme.
-With `--state formstand` it also supplies `formstand`, which needs React 19.
+Your app supplies `zod` 4, `react`, `@mui/material` 7 or 9 with its theme, and the state
+library you chose:
+
+| `--state`         | Your app supplies                                              |
+| ----------------- | -------------------------------------------------------------- |
+| `zustand`         | `zustand` 5                                                    |
+| `formstand`       | `formstand` and `zustand` 5; needs React 19                    |
+| `react-hook-form` | `react-hook-form` 7 (tested on 7.92) and `@hookform/resolvers` |
 
 - **Per-field subscriptions.** Each control selects its own slice, so a keystroke re-renders
   one field.
@@ -70,7 +78,7 @@ With `--state formstand` it also supplies `formstand`, which needs React 19.
 - **Two error channels.** Validation owns one; the other is yours, for what only the
   server knows, and is released when that field is edited. With zustand that is
   `setFieldError("email", "Already registered")` on the store; with formstand it is the
-  form's own `setError`.
+  form's own `setError`; with react-hook-form it is `setError` with `type: "server"`.
 - **Lists** at any depth, with stable row keys.
 - **Discriminated unions** (`z.discriminatedUnion`, or `oneOf` with a discriminator) as a
   branch picker plus that branch's fields, including as the rows of a list. Changing branch
@@ -85,8 +93,8 @@ with messages written for the person filling in the form.
 
 ### Choosing `--state`
 
-Both state libraries produce the same hooks, over the same typed paths, returning the same
-handles — so `controls.tsx` and the form component are identical either way.
+Every state library produces the same hooks, over the same typed paths, returning the same
+handles — so `controls.tsx` and the form component are identical whichever you pick.
 
 - **`zustand`** writes the whole store into `store.ts`. No form library to install; about
   150 lines of plumbing per form that are yours to read and change. It validates the whole
@@ -95,10 +103,15 @@ handles — so `controls.tsx` and the form component are identical either way.
   code, and the exported form is a real formstand `Form`: dirty tracking, `diff()`, async
   validation, persistence and the devtools all work on it. Validation timing is
   formstand's (`mode: "onTouched"`), and so is what a cleared field holds.
+- **`react-hook-form`** creates the form in `form.ts` with `createFormControl`, validated
+  through the zod resolver, and binds each control with `useController`. The exported form
+  is what `useForm()` returns (minus `formState`), and no `FormProvider` is needed. Lists
+  do not use `useFieldArray`: it drops blank rows, so the generated list hook writes rows
+  with `setValue` instead.
 
-The two differ in what they store in one case: a field that is both optional and nullable,
-left blank. The schema accepts either blank; the zustand store holds `null`, and formstand
-holds `undefined`, as its own `useField` does. Everywhere else a blank is the same value.
+They differ in what they store in one case: a field that is both optional and nullable,
+left blank. The schema accepts either blank. formstand holds `undefined`, as its own
+`useField` does; the other two hold `null`. Everywhere else a blank is the same value.
 
 ### Regenerating
 
@@ -122,19 +135,20 @@ does not know about zustand, and adding either a state library or a UI kit is on
 
 ## Packages
 
-| Package                         | What it owns                                                  |
-| ------------------------------- | ------------------------------------------------------------- |
-| `@formation/core`               | FormIR, ComponentIR, the adapter contracts, the assembly walk |
-| `@formation/registry`           | Which stacks exist and which combinations are legal           |
-| `@formation/ingest-json-schema` | JSON Schema and OpenAPI documents → FormIR                    |
-| `@formation/ingest-zod`         | Zod modules → FormIR, through the project's own zod           |
-| `@formation/schema-zod`         | FormIR → a Zod validator, for inputs that have none           |
-| `@formation/state-kit`          | What every state adapter emits alike: values, paths, handles  |
-| `@formation/state-zustand`      | State adapter: a self-contained zustand store                 |
-| `@formation/state-formstand`    | State adapter: a formstand form and hooks over it             |
-| `@formation/ui-mui`             | UI adapter: MUI 7 and 9                                       |
-| `@formation/framework-react`    | ComponentIR → TSX                                             |
-| `@formation/cli`                | `formation generate` (flags) and `formation wizard`           |
+| Package                            | What it owns                                                  |
+| ---------------------------------- | ------------------------------------------------------------- |
+| `@formation/core`                  | FormIR, ComponentIR, the adapter contracts, the assembly walk |
+| `@formation/registry`              | Which stacks exist and which combinations are legal           |
+| `@formation/ingest-json-schema`    | JSON Schema and OpenAPI documents → FormIR                    |
+| `@formation/ingest-zod`            | Zod modules → FormIR, through the project's own zod           |
+| `@formation/schema-zod`            | FormIR → a Zod validator, for inputs that have none           |
+| `@formation/state-kit`             | What every state adapter emits alike: values, paths, handles  |
+| `@formation/state-zustand`         | State adapter: a self-contained zustand store                 |
+| `@formation/state-formstand`       | State adapter: a formstand form and hooks over it             |
+| `@formation/state-react-hook-form` | State adapter: a react-hook-form form and hooks over it       |
+| `@formation/ui-mui`                | UI adapter: MUI 7 and 9                                       |
+| `@formation/framework-react`       | ComponentIR → TSX                                             |
+| `@formation/cli`                   | `formation generate` (flags) and `formation wizard`           |
 
 Planned: `plugin-kit`, more `ingest-*`, `framework-*`, `state-*`, `ui-*`, `tests-*`,
 `create-formation`.

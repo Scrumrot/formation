@@ -188,7 +188,8 @@ export const registry = {
   stateLibraries: {
     zustand: { status: "available", frameworks: ["react"] },
     formstand: { status: "available", frameworks: ["react"] },
-    "react-hook-form": { status: "planned", frameworks: ["react"] },
+    "react-hook-form": { status: "available", frameworks: ["react"] },
+    "tanstack-form": { status: "planned", frameworks: ["react", "vue", "solid", "svelte"] },
     // …
   },
   uiLibraries: {
@@ -198,7 +199,7 @@ export const registry = {
 } as const;
 ```
 
-**`planned` is a status, not an absence.** `--state react-hook-form` answers "on the roadmap but
+**`planned` is a status, not an absence.** `--state tanstack-form` answers "on the roadmap but
 not implemented yet", where an unknown id answers "unknown". An entry is `available` only
 when an adapter exists; a test in the CLI fails if the registry and the adapter maps
 disagree in either direction.
@@ -273,7 +274,7 @@ knows how its library stores a value. The UI adapter is left with nothing to dec
 which component to draw.
 
 Two adapters implement the contract, and a test pins what that buys: for the same schema,
-`controls.tsx` and the form component are byte-identical under zustand and formstand apart
+`controls.tsx` and the form component are byte-identical under every state library apart
 from the name of the module they import from.
 
 `core` owns the walk that puts the two together (`assembleForm`): which fields nest in which
@@ -399,7 +400,8 @@ packages/
   framework-react/    printer   (… -vue, -svelte, -solid, …)                               ✔
   state-kit/          what every state adapter emits alike: values, paths, handles, blanks ✔
   state-zustand/      a self-contained store                                               ✔
-  state-formstand/    a formstand form  (… state-rhf, state-tanstack, state-formik)        ✔
+  state-formstand/    a formstand form                                                     ✔
+  state-react-hook-form/  a react-hook-form form  (… state-tanstack, state-formik)         ✔
   ui-mui/             … ui-shadcn, ui-mantine, ui-vuetify                                  ✔
   cli/                @formation/cli                                                       ✔
   plugin-kit/         public adapter interfaces + test harness for adapter authors
@@ -442,7 +444,8 @@ Three layers:
 Without layer 3, generated code rots silently and the first person to notice is a user.
 
 `examples/golden` is that layer today. It samples the matrix along each axis rather than
-covering the product: both MUI majors under zustand, and formstand under the current MUI.
+covering the product: both MUI majors under zustand, and each other state library under the
+current MUI.
 One spec file runs against every target; where an assertion has to look at stored state it
 goes through a per-library harness, and the spec is typechecked against each harness so
 they cannot drift into different shapes.
@@ -464,7 +467,8 @@ The slice: **Zod + JSON Schema + OpenAPI in → React + TS + zustand + MUI 7/9 o
 9. ✔ Golden project in CI (`.github/workflows/ci.yml`: format, build, unit tests, the
    golden run, and a check that the committed goldens match what the CLI emits)
 10. ✔ `state-formstand`, and `state-kit` extracted from what the two adapters share
-11. ☐ `tests-vitest` — TestCase derivation + component spec emitter
+11. ✔ `state-react-hook-form`
+12. ☐ `tests-vitest` — TestCase derivation + component spec emitter
 
 **Known gaps in the pilot's output**, each degraded loudly rather than silently (a `TODO` in
 the component, the field kept in the store and schema, a diagnostic on stderr):
@@ -477,8 +481,11 @@ the component, the field kept in the store and schema, a diagnostic on stderr):
   the generator warns and names it (`emit/branch-conflict`).
 - **File inputs, tuples, records/maps, recursive and external `$ref`s.**
 - **Async Zod schemas.** The zustand store validates with `safeParse`, which throws on an
-  async refinement. formstand validates async schemas itself, but the golden project does
-  not exercise that yet.
+  async refinement. formstand and react-hook-form validate async schemas themselves, but
+  the golden project does not exercise that yet.
+- **A form-level schema error under formstand and react-hook-form is refreshed on submit,**
+  not on every change as the zustand store does: both validate one field at a time between
+  submits, and an error with no path belongs to none of them.
 - **JavaScript output** (`--syntax js`) and **every test runner**: accepted as ids, refused
   as not implemented.
 
@@ -492,10 +499,23 @@ output: a generated formstand control clears a field to what formstand's own com
 would, at the price that this one value differs between `--state zustand` and
 `--state formstand`.
 
-Next state adapter: **react-hook-form**. formstand is itself a zustand store, so it was the
-friendly case. react-hook-form registers uncontrolled inputs and owns its own validation
-resolver; if the contract was shaped by zustand's needs rather than the problem's, that is
-where it will show.
+**What the third showed.** react-hook-form was the adapter the contract was most likely to
+bend for: uncontrolled inputs, and a form that lives in a component and reaches its fields
+through a provider. It did not bend, and `ui-mui` was again untouched. `useController`
+returns what a field handle needs, and `createFormControl` puts the form at module level,
+so a hook still takes a path and nothing else.
+
+What react-hook-form could not supply was the list. `useFieldArray` filters falsy rows out
+on every operation, so it cannot hold a blank row of a list of plain values (`""`, `0`) or
+of a union with no branch chosen (`undefined`) — both of which the contract's lists start
+with. The generated list hook writes rows with `setValue` and keeps row identity itself.
+The shared spec found this, and it now has a test for two blank rows in a list of strings.
+
+Two smaller things the spec gained from the exercise, both of which apply to every adapter:
+a removed row's error must not land on the row that moves into its place, and a form-level
+error (a refinement that names no field) must actually reach the form's alert.
+
+Next state adapter: **TanStack Form**, which is the first one that is not React-only.
 
 Then, before broadening: **add Vue or Svelte second, not fifth.** The render-tree IR is a
 hypothesis until a non-JSX printer exists. Everything about the adapter API should be
@@ -506,12 +526,12 @@ considered provisional until that happens — which is an argument for tagging v
 
 ## 12. Risks worth naming now
 
-- **The handle contract has two implementations, and they are cousins.** §6's
-  field/list/form handles were designed against zustand, and the second adapter, formstand,
-  is a zustand store underneath: both hand a controlled value to the control. A form library
-  built on uncontrolled inputs is a different shape; if `react-hook-form`'s `register`
-  cannot be wrapped into a `FieldHandle` without an extra render or a lost feature, the
-  contract moves. Treat it as provisional until that adapter lands.
+- **The handle contract has three implementations, all React, all controlled.** It held
+  for a hand-rolled store, a store-backed form library and react-hook-form. What it has not
+  met is a UI kit that wants an uncontrolled input (a `ref` and `register`, for native
+  inputs at scale): a field handle has no `ref`, so react-hook-form's uncontrolled mode —
+  its reason for existing — is not something this output uses. If that matters, the handle
+  grows an optional `ref`, and every state adapter has to decide what it means.
 - **Self-contained output duplicates its runtime.** Each generated store carries its own
   ~150 lines of path and validation plumbing, which is the price of "no runtime package".
   Ten forms is ten copies. If that grates, the fix is an opt-in shared module emitted once

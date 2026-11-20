@@ -58,16 +58,18 @@ describe("the state library is a parameter", () => {
   // The claim the adapter seam makes: what draws the form cannot tell what
   // holds its state. If a UI file ever differs by more than the name of the
   // module it imports from, a state adapter has leaked into the UI.
-  const sameUnder = async (file: (form: GeneratedForm) => string): Promise<void> => {
-    const [zustand, formstand] = await Promise.all([
-      generate("profile.ts", "zod", { state: "zustand" }),
-      generate("profile.ts", "zod", { state: "formstand" }),
-    ]);
+  const others: readonly Stack["stateLibrary"][] = ["formstand", "react-hook-form"];
 
-    expect(file(formstand).replaceAll('"./form"', '"./store"')).toBe(file(zustand));
+  const sameUnder = async (file: (form: GeneratedForm) => string): Promise<void> => {
+    const zustand = await generate("profile.ts", "zod", { state: "zustand" });
+    const rest = await Promise.all(others.map((state) => generate("profile.ts", "zod", { state })));
+
+    expect(rest.map((form) => file(form).replaceAll('"./form"', '"./store"'))).toEqual(
+      others.map(() => file(zustand)),
+    );
   };
 
-  it("emits identical controls for zustand and formstand", () =>
+  it("emits identical controls under every state library", () =>
     sameUnder((form) => contentOf(form, "controls.tsx")));
 
   it("emits an identical form component", () =>
@@ -95,7 +97,12 @@ describe("the state library is a parameter", () => {
         .find((line) => line.startsWith("export type {") && !line.includes("Props"))
         ?.replace('"./form"', '"./store"');
 
-    expect(await exported("formstand")).toBe(await exported("zustand"));
+    expect(await Promise.all(others.map(exported))).toEqual(
+      others.map(() => 'export type { OrderValues, OrderData, OrderPath } from "./store";'),
+    );
+    expect(await exported("zustand")).toBe(
+      'export type { OrderValues, OrderData, OrderPath } from "./store";',
+    );
   });
 });
 

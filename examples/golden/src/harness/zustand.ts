@@ -1,3 +1,4 @@
+import { useBookingStore } from "@generated/BookingForm";
 import { useConsentStore } from "@generated/ConsentForm";
 import { useNewPetStore } from "@generated/NewPetForm";
 import type { NewPetValues } from "@generated/NewPetForm";
@@ -40,6 +41,10 @@ export const profile = {
 export const newPet = {
   values: (): NewPetValues => useNewPetStore.getState().values,
   reset: (values?: NewPetValues): void => useNewPetStore.getState().reset(values),
+};
+
+export const booking = {
+  reset: (): void => useBookingStore.getState().reset(),
 };
 
 export const consent = {

@@ -5,6 +5,7 @@ import {
   DATE_HELPERS,
   DICT_TYPE,
   EMPTY_OF,
+  NUMBER_HELPERS,
   PATTERN_OF,
   blankRowsTable,
   dateEncodingsTable,
@@ -85,24 +86,7 @@ const setAt = (source: unknown, segments: readonly string[], value: unknown): un
 
 const dropKeys = <T>(dict: Dict<T>, drop: (key: string) => boolean): Dict<T> =>
   Object.fromEntries(Object.entries(dict).filter(([key]) => !drop(key)));
-${when(usage.patterns, PATTERN_OF)}${when(usage.empties, EMPTY_OF)}${when(
-    usage.number,
-    `
-// Plain decimal notation only. Number() alone also reads "0x10" and "Infinity",
-// neither of which anyone means in a form.
-const DECIMAL_TEXT = /^[+-]?(\\d+\\.?\\d*|\\.\\d+)([eE][+-]?\\d+)?$/;
-
-const parseNumber = (text: string): number | "empty" | "unfinished" => {
-  const trimmed = text.trim();
-
-  return trimmed === ""
-    ? "empty"
-    : DECIMAL_TEXT.test(trimmed) && Number.isFinite(Number(trimmed))
-      ? Number(trimmed)
-      : "unfinished";
-};
-`,
-  )}${when(usage.date, DATE_HELPERS)}`;
+${when(usage.patterns, PATTERN_OF)}${when(usage.empties, EMPTY_OF)}${when(usage.number, NUMBER_HELPERS)}${when(usage.date, DATE_HELPERS)}`;
 
 const storeSection = (input: StateAdapterInput, names: StoreNames, usage: Usage): string => `
 ${section("Validation")}
