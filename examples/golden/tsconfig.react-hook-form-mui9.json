@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      "@generated/*": ["./src/generated/react-hook-form-mui9/*"],
+      "@harness": ["./src/harness/react-hook-form.ts"]
+    }
+  },
+  "include": [
+    "schemas",
+    "src/generated/react-hook-form-mui9",
+    "src/*.tsx",
+    "src/harness/react-hook-form.ts",
+    "src/typed-paths/react-hook-form.ts"
+  ]
+}

@@ -6,17 +6,19 @@
   "description": "Golden project: generated forms for every supported stack, typechecked and run against the real libraries.",
   "scripts": {
     "generate": "node ./generate.mjs",
-    "typecheck": "tsc -p tsconfig.zustand-mui9.json && tsc -p tsconfig.zustand-mui7.json && tsc -p tsconfig.formstand-mui9.json",
+    "typecheck": "tsc -p tsconfig.zustand-mui9.json && tsc -p tsconfig.zustand-mui7.json && tsc -p tsconfig.formstand-mui9.json && tsc -p tsconfig.react-hook-form-mui9.json",
     "test": "vitest run"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@hookform/resolvers": "^5.0.0",
     "@mui/material": "^9.5.0",
     "formstand": "^0.26.1",
     "mui7": "npm:@mui/material@^7.3.11",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-hook-form": "^7.55.0",
     "zod": "^4.6.7",
     "zustand": "^5.1.0"
   },

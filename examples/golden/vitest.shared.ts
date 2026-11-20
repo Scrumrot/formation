@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 
 import type { TestProjectInlineConfiguration } from "vitest/config";
 
-export type Target = Readonly<{ state: "zustand" | "formstand"; major: 7 | 9 }>;
+export type Target = Readonly<{ state: "zustand" | "formstand" | "react-hook-form"; major: 7 | 9 }>;
 
 const here = (path: string): string => fileURLToPath(new URL(path, import.meta.url));
 

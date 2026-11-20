@@ -18,16 +18,18 @@ pnpm test            # render and drive every form, once per target
 | `schemas/order.json`    | JSON Schema | `$ref`, `allOf`, titled and numeric enums, bounds, defaults, a record                 |
 | `schemas/petstore.yaml` | OpenAPI 3.0 | `--select`, `nullable: true`, one-branch `allOf`, a required union by `discriminator` |
 | `schemas/consent.json`  | JSON Schema | a form with one control kind, so unused runtime must not be emitted                   |
+| `schemas/booking.ts`    | Zod module  | a refinement that names no field, so the error belongs to the form as a whole         |
 
 ## Targets
 
 Each target is one `--state` and one `--ui`, generated into its own tree:
 
-| Target           | Generated into                 | Why it is here                    |
-| ---------------- | ------------------------------ | --------------------------------- |
-| zustand + MUI 9  | `src/generated/zustand-mui9`   | the pilot stack                   |
-| zustand + MUI 7  | `src/generated/zustand-mui7`   | the other supported MUI major     |
-| formstand + MUI9 | `src/generated/formstand-mui9` | the other supported state library |
+| Target                  | Generated into                       | Why it is here                              |
+| ----------------------- | ------------------------------------ | ------------------------------------------- |
+| zustand + MUI 9         | `src/generated/zustand-mui9`         | the pilot stack                             |
+| zustand + MUI 7         | `src/generated/zustand-mui7`         | the other supported MUI major               |
+| formstand + MUI 9       | `src/generated/formstand-mui9`       | a form library that is a store underneath   |
+| react-hook-form + MUI 9 | `src/generated/react-hook-form-mui9` | a form library built on uncontrolled inputs |
 
 That is not the full state × UI product, on purpose. A UI adapter only ever sees the hook
 contract, so the two axes are independent by construction: each value of each axis has to
@@ -38,9 +40,9 @@ appear once, not once per partner.
 `src/forms.test.tsx` names no state library. It imports the forms through `@generated`, and
 where an assertion has to look at what is actually stored it asks `@harness`. Each target's
 vitest project (and tsconfig) points those two aliases at its own generated tree and its
-own library's harness in `src/harness/`. So the same assertions hold a zustand store and a
-formstand form to the same behaviour, and the spec is typechecked against both harnesses,
-which keeps them the same shape.
+own library's harness in `src/harness/`. So the same assertions hold a zustand store, a
+formstand form and a react-hook-form form to the same behaviour, and the spec is
+typechecked against every harness, which keeps them the same shape.
 
 `@mui/material` 9 is installed normally and 7 beside it under the alias `mui7`; the MUI 7
 target resolves the bare specifier to it for both types and runtime. The spec's first test

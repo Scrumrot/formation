@@ -228,7 +228,12 @@ const emptyOf = <Fallback extends "" | undefined>(
 
 // Plain decimal notation only. Number() alone also reads "0x10" and "Infinity",
 // neither of which anyone means in a form.
-const DECIMAL_TEXT = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+//
+// The fraction's digits sit behind the dot, in one optional group. Written as
+// \d+\.?\d* a run of digits can be split between the two quantifiers at every
+// position, and a long run that then fails to match is retried at each one:
+// 80,000 pasted digits and a letter held the tab for nine seconds.
+const DECIMAL_TEXT = /^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$/;
 
 const parseNumber = (text: string): number | "empty" | "unfinished" => {
   const trimmed = text.trim();

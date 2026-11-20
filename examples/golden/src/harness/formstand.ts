@@ -1,3 +1,4 @@
+import { bookingForm, bookingInitialValues } from "@generated/BookingForm";
 import { consentForm, consentInitialValues } from "@generated/ConsentForm";
 import { newPetForm, newPetInitialValues } from "@generated/NewPetForm";
 import type { NewPetValues } from "@generated/NewPetForm";
@@ -52,5 +53,7 @@ export const profile = {
 };
 
 export const newPet = stateOf<NewPetValues>(newPetForm, newPetInitialValues);
+
+export const booking = stateOf(bookingForm, bookingInitialValues);
 
 export const consent = stateOf(consentForm, consentInitialValues);

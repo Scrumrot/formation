@@ -1,8 +1,9 @@
+import { BookingForm } from "@generated/BookingForm";
 import { ConsentForm } from "@generated/ConsentForm";
 import { NewPetForm } from "@generated/NewPetForm";
 import { OrderForm } from "@generated/OrderForm";
 import { ProfileForm } from "@generated/ProfileForm";
-import { blanks, consent, newPet, order, profile } from "@harness";
+import { blanks, booking, consent, newPet, order, profile } from "@harness";
 import { major as muiMajor } from "@mui/material/version";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -29,6 +30,7 @@ afterEach(() => {
   profile.reset();
   newPet.reset();
   consent.reset();
+  booking.reset();
 });
 
 // Injected per config by vitest.shared.ts.
@@ -171,6 +173,34 @@ describe("OrderForm (from JSON Schema)", () => {
     expect(remaining).toHaveLength(1);
     expect(remaining[0]?.value).toBe("BBB");
     expect(order.values().lines).toEqual([{ sku: "BBB", quantity: 1, giftWrap: false }]);
+  });
+});
+
+describe("OrderForm lists", () => {
+  it("does not show a removed row's error on the row that moves into its place", async () => {
+    const user = userEvent.setup();
+
+    render(<OrderForm onSubmit={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Add line" }));
+    await user.click(screen.getByRole("button", { name: "Add line" }));
+    // A submit puts "Required" under both blank SKUs.
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+    await waitFor(() =>
+      expect(
+        screen.getAllByLabelText(/SKU/).map((sku) => sku.getAttribute("aria-invalid")),
+      ).toEqual(["true", "true"]),
+    );
+
+    await user.type(screen.getAllByLabelText(/SKU/)[1] as HTMLElement, "BBB");
+    await user.click(screen.getAllByRole("button", { name: "Remove" })[0] as HTMLElement);
+
+    // Errors are filed by row position in every state library; the row that
+    // survives is valid and must not inherit the first row's.
+    const [remaining, ...others] = screen.getAllByLabelText<HTMLInputElement>(/SKU/);
+
+    expect(others).toHaveLength(0);
+    expect(remaining?.value).toBe("BBB");
+    await waitFor(() => expect(remaining?.getAttribute("aria-invalid")).toBe("false"));
   });
 });
 
@@ -375,6 +405,23 @@ describe("NewPetForm (from an OpenAPI document)", () => {
     expect(newPet.values().weightKg).toBe(blanks.optionalNullable);
   });
 
+  it("keeps every blank row of a list of plain values", async () => {
+    const user = userEvent.setup();
+
+    render(<NewPetForm onSubmit={vi.fn()} />);
+    // Two rows that are both the empty string: a list that treated a blank
+    // row as no row would show one.
+    await user.click(screen.getByRole("button", { name: "Add nickname" }));
+    await user.click(screen.getByRole("button", { name: "Add nickname" }));
+    expect(newPet.values().nicknames).toEqual(["", ""]);
+
+    const [first, second] = screen.getAllByLabelText(/^Nickname/);
+
+    await user.type(second as HTMLElement, "Bix");
+    await user.type(first as HTMLElement, "Biscuit");
+    expect(newPet.values().nicknames).toEqual(["Biscuit", "Bix"]);
+  });
+
   it("submits a section that came through a $ref", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
@@ -455,6 +502,46 @@ describe("NewPetForm (from an OpenAPI document)", () => {
     // `fencedAreaM2` is required only by the outdoor branch.
     expect(await screen.findByText("Enter a number")).toBeTruthy();
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+});
+
+describe("BookingForm (a rule that belongs to no single field)", () => {
+  const fill = (from: string, to: string): void => {
+    fireEvent.change(screen.getByLabelText(/From/), { target: { value: from } });
+    fireEvent.change(screen.getByLabelText(/To/), { target: { value: to } });
+  };
+
+  it("shows a form-level error, apart from any control, and refuses the submit", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+
+    render(<BookingForm onSubmit={onSubmit} />);
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    fill("2026-03-10", "2026-03-01");
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "The end date is before the start date",
+    );
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("lets the submit through once the rule is satisfied, and drops the error", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+
+    render(<BookingForm onSubmit={onSubmit} />);
+    fill("2026-03-10", "2026-03-01");
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+    await screen.findByRole("alert");
+
+    fill("2026-03-10", "2026-03-12");
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0]?.[0]).toEqual({ from: "2026-03-10", to: "2026-03-12" });
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   });
 });
 

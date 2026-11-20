@@ -17,6 +17,7 @@ import { fromZodModule } from "@formation/ingest-zod";
 import type { Stack, StateLibraryId, UiLibraryId } from "@formation/registry";
 import { emitZodSchema } from "@formation/schema-zod";
 import { formstandAdapter } from "@formation/state-formstand";
+import { reactHookFormAdapter } from "@formation/state-react-hook-form";
 import { zustandAdapter } from "@formation/state-zustand";
 import { muiAdapter, muiMajors } from "@formation/ui-mui";
 import { parse as parseYaml } from "yaml";
@@ -65,6 +66,7 @@ export type GeneratedForm = Readonly<{
 export const stateAdapters: Readonly<Partial<Record<StateLibraryId, StateAdapter>>> = {
   zustand: zustandAdapter,
   formstand: formstandAdapter,
+  "react-hook-form": reactHookFormAdapter,
 };
 
 export const uiAdapters: Readonly<

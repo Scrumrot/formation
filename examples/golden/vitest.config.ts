@@ -9,6 +9,7 @@ export const config = defineConfig({
       projectFor({ state: "zustand", major: 9 }),
       projectFor({ state: "zustand", major: 7 }),
       projectFor({ state: "formstand", major: 9 }),
+      projectFor({ state: "react-hook-form", major: 9 }),
     ],
   },
 });

@@ -168,7 +168,7 @@ export const stateLibraries: Readonly<Record<StateLibraryId, StateLibrary>> = {
   },
   "react-hook-form": {
     label: "React Hook Form",
-    status: "planned",
+    status: "available",
     package: "react-hook-form",
     frameworks: ["react"],
   },

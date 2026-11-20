@@ -7,6 +7,7 @@ export {
   DATE_HELPERS,
   DICT_TYPE,
   EMPTY_OF,
+  NUMBER_HELPERS,
   PATTERN_OF,
   blankRowsTable,
   dateEncodingsTable,

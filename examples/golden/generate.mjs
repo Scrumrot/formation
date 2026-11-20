@@ -8,6 +8,7 @@ const cli = fileURLToPath(new URL("../../packages/cli/dist/bin.js", import.meta.
 
 const forms = [
   ["schemas/profile.ts"],
+  ["schemas/booking.ts"],
   ["schemas/order.json"],
   ["schemas/petstore.yaml", "--select", "NewPet"],
   ["schemas/consent.json"],
@@ -16,11 +17,12 @@ const forms = [
 // Not the full state × UI product, on purpose. The two axes are independent by
 // construction (a UI adapter only ever sees the hook contract), so each value
 // of each axis needs to appear once, not once per partner: both MUI majors run
-// under zustand, and formstand runs under the current MUI.
+// under zustand, and every other state library runs under the current MUI.
 const targets = [
   { state: "zustand", ui: "mui@9" },
   { state: "zustand", ui: "mui@7" },
   { state: "formstand", ui: "mui@9" },
+  { state: "react-hook-form", ui: "mui@9" },
 ];
 
 targets.forEach(({ state, ui }) =>
